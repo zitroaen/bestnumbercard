@@ -1,59 +1,122 @@
-const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,i=Symbol(),s=new WeakMap;let n=class{constructor(t,e,s){if(this._$cssResult$=!0,s!==i)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e}get styleSheet(){let t=this.o;const i=this.t;if(e&&void 0===t){const e=void 0!==i&&1===i.length;e&&(t=s.get(i)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&s.set(i,t))}return t}toString(){return this.cssText}};const o=(t,...e)=>{const s=1===t.length?t[0]:e.reduce((e,i,s)=>e+(t=>{if(!0===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(i)+t[s+1],t[0]);return new n(s,t,i)},a=e?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const i of t.cssRules)e+=i.cssText;return(t=>new n("string"==typeof t?t:t+"",void 0,i))(e)})(t):t,{is:r,defineProperty:l,getOwnPropertyDescriptor:h,getOwnPropertyNames:c,getOwnPropertySymbols:d,getPrototypeOf:p}=Object,u=globalThis,m=u.trustedTypes,_=m?m.emptyScript:"",f=u.reactiveElementPolyfillSupport,g=(t,e)=>t,v={toAttribute(t,e){switch(e){case Boolean:t=t?_:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t)}return t},fromAttribute(t,e){let i=t;switch(e){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t)}catch(t){i=null}}return i}},$=(t,e)=>!r(t,e),b={attribute:!0,type:String,converter:v,reflect:!1,useDefault:!1,hasChanged:$};Symbol.metadata??=Symbol("metadata"),u.litPropertyMetadata??=new WeakMap;let y=class extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,e=b){if(e.state&&(e.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(t)&&((e=Object.create(e)).wrapped=!0),this.elementProperties.set(t,e),!e.noAccessor){const i=Symbol(),s=this.getPropertyDescriptor(t,i,e);void 0!==s&&l(this.prototype,t,s)}}static getPropertyDescriptor(t,e,i){const{get:s,set:n}=h(this.prototype,t)??{get(){return this[e]},set(t){this[e]=t}};return{get:s,set(e){const o=s?.call(this);n?.call(this,e),this.requestUpdate(t,o,i)},configurable:!0,enumerable:!0}}static getPropertyOptions(t){return this.elementProperties.get(t)??b}static _$Ei(){if(this.hasOwnProperty(g("elementProperties")))return;const t=p(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties)}static finalize(){if(this.hasOwnProperty(g("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(g("properties"))){const t=this.properties,e=[...c(t),...d(t)];for(const i of e)this.createProperty(i,t[i])}const t=this[Symbol.metadata];if(null!==t){const e=litPropertyMetadata.get(t);if(void 0!==e)for(const[t,i]of e)this.elementProperties.set(t,i)}this._$Eh=new Map;for(const[t,e]of this.elementProperties){const i=this._$Eu(t,e);void 0!==i&&this._$Eh.set(i,t)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(t){const e=[];if(Array.isArray(t)){const i=new Set(t.flat(1/0).reverse());for(const t of i)e.unshift(a(t))}else void 0!==t&&e.push(a(t));return e}static _$Eu(t,e){const i=e.attribute;return!1===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this))}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.()}removeController(t){this._$EO?.delete(t)}_$E_(){const t=new Map,e=this.constructor.elementProperties;for(const i of e.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t)}createRenderRoot(){const i=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return((i,s)=>{if(e)i.adoptedStyleSheets=s.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of s){const s=document.createElement("style"),n=t.litNonce;void 0!==n&&s.setAttribute("nonce",n),s.textContent=e.cssText,i.appendChild(s)}})(i,this.constructor.elementStyles),i}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(t=>t.hostConnected?.())}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.())}attributeChangedCallback(t,e,i){this._$AK(t,i)}_$ET(t,e){const i=this.constructor.elementProperties.get(t),s=this.constructor._$Eu(t,i);if(void 0!==s&&!0===i.reflect){const n=(void 0!==i.converter?.toAttribute?i.converter:v).toAttribute(e,i.type);this._$Em=t,null==n?this.removeAttribute(s):this.setAttribute(s,n),this._$Em=null}}_$AK(t,e){const i=this.constructor,s=i._$Eh.get(t);if(void 0!==s&&this._$Em!==s){const t=i.getPropertyOptions(s),n="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:v;this._$Em=s;const o=n.fromAttribute(e,t.type);this[s]=o??this._$Ej?.get(s)??o,this._$Em=null}}requestUpdate(t,e,i,s=!1,n){if(void 0!==t){const o=this.constructor;if(!1===s&&(n=this[t]),i??=o.getPropertyOptions(t),!((i.hasChanged??$)(n,e)||i.useDefault&&i.reflect&&n===this._$Ej?.get(t)&&!this.hasAttribute(o._$Eu(t,i))))return;this.C(t,e,i)}!1===this.isUpdatePending&&(this._$ES=this._$EP())}C(t,e,{useDefault:i,reflect:s,wrapped:n},o){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,o??e??this[t]),!0!==n||void 0!==o)||(this._$AL.has(t)||(this.hasUpdated||i||(e=void 0),this._$AL.set(t,e)),!0===s&&this._$Em!==t&&(this._$Eq??=new Set).add(t))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(t){Promise.reject(t)}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,e]of this._$Ep)this[t]=e;this._$Ep=void 0}const t=this.constructor.elementProperties;if(t.size>0)for(const[e,i]of t){const{wrapped:t}=i,s=this[e];!0!==t||this._$AL.has(e)||void 0===s||this.C(e,void 0,i,s)}}let t=!1;const e=this._$AL;try{t=this.shouldUpdate(e),t?(this.willUpdate(e),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(e)):this._$EM()}catch(e){throw t=!1,this._$EM(),e}t&&this._$AE(e)}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(t)),this.updated(t)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return!0}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM()}updated(t){}firstUpdated(t){}};y.elementStyles=[],y.shadowRootOptions={mode:"open"},y[g("elementProperties")]=new Map,y[g("finalized")]=new Map,f?.({ReactiveElement:y}),(u.reactiveElementVersions??=[]).push("2.1.2");const w=globalThis,x=t=>t,S=w.trustedTypes,A=S?S.createPolicy("lit-html",{createHTML:t=>t}):void 0,E="$lit$",N=`lit$${Math.random().toFixed(9).slice(2)}$`,k="?"+N,M=`<${k}>`,T=document,C=()=>T.createComment(""),P=t=>null===t||"object"!=typeof t&&"function"!=typeof t,U=Array.isArray,F="[ \t\n\f\r]",H=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,L=/-->/g,D=/>/g,O=RegExp(`>|${F}(?:([^\\s"'>=/]+)(${F}*=${F}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),z=/'/g,R=/"/g,I=/^(?:script|style|textarea|title)$/i,V=t=>(e,...i)=>({_$litType$:t,strings:e,values:i}),j=V(1),W=V(2),B=Symbol.for("lit-noChange"),G=Symbol.for("lit-nothing"),K=new WeakMap,X=T.createTreeWalker(T,129);function q(t,e){if(!U(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==A?A.createHTML(e):e}const Z=(t,e)=>{const i=t.length-1,s=[];let n,o=2===e?"<svg>":3===e?"<math>":"",a=H;for(let e=0;e<i;e++){const i=t[e];let r,l,h=-1,c=0;for(;c<i.length&&(a.lastIndex=c,l=a.exec(i),null!==l);)c=a.lastIndex,a===H?"!--"===l[1]?a=L:void 0!==l[1]?a=D:void 0!==l[2]?(I.test(l[2])&&(n=RegExp("</"+l[2],"g")),a=O):void 0!==l[3]&&(a=O):a===O?">"===l[0]?(a=n??H,h=-1):void 0===l[1]?h=-2:(h=a.lastIndex-l[2].length,r=l[1],a=void 0===l[3]?O:'"'===l[3]?R:z):a===R||a===z?a=O:a===L||a===D?a=H:(a=O,n=void 0);const d=a===O&&t[e+1].startsWith("/>")?" ":"";o+=a===H?i+M:h>=0?(s.push(r),i.slice(0,h)+E+i.slice(h)+N+d):i+N+(-2===h?e:d)}return[q(t,o+(t[i]||"<?>")+(2===e?"</svg>":3===e?"</math>":"")),s]};class J{constructor({strings:t,_$litType$:e},i){let s;this.parts=[];let n=0,o=0;const a=t.length-1,r=this.parts,[l,h]=Z(t,e);if(this.el=J.createElement(l,i),X.currentNode=this.el.content,2===e||3===e){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes)}for(;null!==(s=X.nextNode())&&r.length<a;){if(1===s.nodeType){if(s.hasAttributes())for(const t of s.getAttributeNames())if(t.endsWith(E)){const e=h[o++],i=s.getAttribute(t).split(N),a=/([.?@])?(.*)/.exec(e);r.push({type:1,index:n,name:a[2],strings:i,ctor:"."===a[1]?it:"?"===a[1]?st:"@"===a[1]?nt:et}),s.removeAttribute(t)}else t.startsWith(N)&&(r.push({type:6,index:n}),s.removeAttribute(t));if(I.test(s.tagName)){const t=s.textContent.split(N),e=t.length-1;if(e>0){s.textContent=S?S.emptyScript:"";for(let i=0;i<e;i++)s.append(t[i],C()),X.nextNode(),r.push({type:2,index:++n});s.append(t[e],C())}}}else if(8===s.nodeType)if(s.data===k)r.push({type:2,index:n});else{let t=-1;for(;-1!==(t=s.data.indexOf(N,t+1));)r.push({type:7,index:n}),t+=N.length-1}n++}}static createElement(t,e){const i=T.createElement("template");return i.innerHTML=t,i}}function Y(t,e,i=t,s){if(e===B)return e;let n=void 0!==s?i._$Co?.[s]:i._$Cl;const o=P(e)?void 0:e._$litDirective$;return n?.constructor!==o&&(n?._$AO?.(!1),void 0===o?n=void 0:(n=new o(t),n._$AT(t,i,s)),void 0!==s?(i._$Co??=[])[s]=n:i._$Cl=n),void 0!==n&&(e=Y(t,n._$AS(t,e.values),n,s)),e}class Q{constructor(t,e){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=e}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:e},parts:i}=this._$AD,s=(t?.creationScope??T).importNode(e,!0);X.currentNode=s;let n=X.nextNode(),o=0,a=0,r=i[0];for(;void 0!==r;){if(o===r.index){let e;2===r.type?e=new tt(n,n.nextSibling,this,t):1===r.type?e=new r.ctor(n,r.name,r.strings,this,t):6===r.type&&(e=new ot(n,this,t)),this._$AV.push(e),r=i[++a]}o!==r?.index&&(n=X.nextNode(),o++)}return X.currentNode=T,s}p(t){let e=0;for(const i of this._$AV)void 0!==i&&(void 0!==i.strings?(i._$AI(t,i,e),e+=i.strings.length-2):i._$AI(t[e])),e++}}class tt{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,e,i,s){this.type=2,this._$AH=G,this._$AN=void 0,this._$AA=t,this._$AB=e,this._$AM=i,this.options=s,this._$Cv=s?.isConnected??!0}get parentNode(){let t=this._$AA.parentNode;const e=this._$AM;return void 0!==e&&11===t?.nodeType&&(t=e.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,e=this){t=Y(this,t,e),P(t)?t===G||null==t||""===t?(this._$AH!==G&&this._$AR(),this._$AH=G):t!==this._$AH&&t!==B&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):(t=>U(t)||"function"==typeof t?.[Symbol.iterator])(t)?this.k(t):this._(t)}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t))}_(t){this._$AH!==G&&P(this._$AH)?this._$AA.nextSibling.data=t:this.T(T.createTextNode(t)),this._$AH=t}$(t){const{values:e,_$litType$:i}=t,s="number"==typeof i?this._$AC(t):(void 0===i.el&&(i.el=J.createElement(q(i.h,i.h[0]),this.options)),i);if(this._$AH?._$AD===s)this._$AH.p(e);else{const t=new Q(s,this),i=t.u(this.options);t.p(e),this.T(i),this._$AH=t}}_$AC(t){let e=K.get(t.strings);return void 0===e&&K.set(t.strings,e=new J(t)),e}k(t){U(this._$AH)||(this._$AH=[],this._$AR());const e=this._$AH;let i,s=0;for(const n of t)s===e.length?e.push(i=new tt(this.O(C()),this.O(C()),this,this.options)):i=e[s],i._$AI(n),s++;s<e.length&&(this._$AR(i&&i._$AB.nextSibling,s),e.length=s)}_$AR(t=this._$AA.nextSibling,e){for(this._$AP?.(!1,!0,e);t!==this._$AB;){const e=x(t).nextSibling;x(t).remove(),t=e}}setConnected(t){void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t))}}class et{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,e,i,s,n){this.type=1,this._$AH=G,this._$AN=void 0,this.element=t,this.name=e,this._$AM=s,this.options=n,i.length>2||""!==i[0]||""!==i[1]?(this._$AH=Array(i.length-1).fill(new String),this.strings=i):this._$AH=G}_$AI(t,e=this,i,s){const n=this.strings;let o=!1;if(void 0===n)t=Y(this,t,e,0),o=!P(t)||t!==this._$AH&&t!==B,o&&(this._$AH=t);else{const s=t;let a,r;for(t=n[0],a=0;a<n.length-1;a++)r=Y(this,s[i+a],e,a),r===B&&(r=this._$AH[a]),o||=!P(r)||r!==this._$AH[a],r===G?t=G:t!==G&&(t+=(r??"")+n[a+1]),this._$AH[a]=r}o&&!s&&this.j(t)}j(t){t===G?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"")}}class it extends et{constructor(){super(...arguments),this.type=3}j(t){this.element[this.name]=t===G?void 0:t}}class st extends et{constructor(){super(...arguments),this.type=4}j(t){this.element.toggleAttribute(this.name,!!t&&t!==G)}}class nt extends et{constructor(t,e,i,s,n){super(t,e,i,s,n),this.type=5}_$AI(t,e=this){if((t=Y(this,t,e,0)??G)===B)return;const i=this._$AH,s=t===G&&i!==G||t.capture!==i.capture||t.once!==i.once||t.passive!==i.passive,n=t!==G&&(i===G||s);s&&this.element.removeEventListener(this.name,this,i),n&&this.element.addEventListener(this.name,this,t),this._$AH=t}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t)}}class ot{constructor(t,e,i){this.element=t,this.type=6,this._$AN=void 0,this._$AM=e,this.options=i}get _$AU(){return this._$AM._$AU}_$AI(t){Y(this,t)}}const at=w.litHtmlPolyfillSupport;at?.(J,tt),(w.litHtmlVersions??=[]).push("3.3.3");const rt=globalThis;class lt extends y{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const e=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=((t,e,i)=>{const s=i?.renderBefore??e;let n=s._$litPart$;if(void 0===n){const t=i?.renderBefore??null;s._$litPart$=n=new tt(e.insertBefore(C(),t),t,void 0,i??{})}return n._$AI(t),n})(e,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return B}}lt._$litElement$=!0,lt.finalized=!0,rt.litElementHydrateSupport?.({LitElement:lt});const ht=rt.litElementPolyfillSupport;ht?.({LitElement:lt}),(rt.litElementVersions??=[]).push("4.2.2");var ct="0.1.0";function dt(t,e,i){t.dispatchEvent(new CustomEvent(e,{detail:i,bubbles:!0,composed:!0}))}const pt=new Map;let ut;function mt(t,e){let i=t.trim();const s=/^var\(\s*(--[^,)\s]+)\s*(?:,\s*([^)]+))?\)$/.exec(i);if(s){return i=(e?getComputedStyle(e).getPropertyValue(s[1]).trim():"")||s[2]?.trim()||"#000",mt(i)}const n=pt.get(i);if(n)return n;let o=_t(i);return o||"undefined"==typeof document||(ut??=document.createElement("canvas").getContext("2d"),ut&&(ut.fillStyle="#000",ut.fillStyle=i,o=_t(String(ut.fillStyle)))),o??=[0,0,0,1],pt.set(i,o),o}function _t(t){let e=/^#([0-9a-f]{3,8})$/i.exec(t);if(e){let t=e[1];if(3!==t.length&&4!==t.length||(t=[...t].map(t=>t+t).join("")),6!==t.length&&8!==t.length)return null;const i=e=>parseInt(t.slice(e,e+2),16);return[i(0),i(2),i(4),8===t.length?i(6)/255:1]}if(e=/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+%?))?\s*\)$/i.exec(t),e){let t=1;return void 0!==e[4]&&(t=e[4].endsWith("%")?parseFloat(e[4])/100:parseFloat(e[4])),[+e[1],+e[2],+e[3],t]}return null}function ft([t,e,i,s]){const n=t=>Math.round(t);return s>=1?`rgb(${n(t)},${n(e)},${n(i)})`:`rgba(${n(t)},${n(e)},${n(i)},${+s.toFixed(3)})`}function gt(t){return t.filter(t=>t&&Number.isFinite(Number(t.value))&&t.color).map((t,e)=>({s:{value:Number(t.value),color:String(t.color)},i:e})).sort((t,e)=>t.s.value-e.s.value||t.i-e.i).map(t=>t.s)}function vt(t,e,i,s){const n=t.length;if(!n||!Number.isFinite(i))return s(t[0]?.color??"#000");if(i<t[0].value)return s(t[0].color);let o=0;for(;o+1<n&&t[o+1].value<=i;)o++;if("step"===e||o===n-1)return s(t[o].color);const a=t[o],r=t[o+1],l=(i-a.value)/(r.value-a.value);return function(t,e,i){return[t[0]+(e[0]-t[0])*i,t[1]+(e[1]-t[1])*i,t[2]+(e[2]-t[2])*i,t[3]+(e[3]-t[3])*i]}(s(a.color),s(r.color),l)}const $t={"5minute":3e5,hour:36e5,day:864e5};class bt{constructor(){this.statT=[],this.statV=[],this.statsEnd=NaN,this.rawT=[],this.rawV=[],this.rawFrom=NaN,this.rawUntil=NaN,this.statsLoaded=!1,this.version=0}appendRaw(t,e){const i=this.rawT.length;return i&&t<=this.rawT[i-1]?t===this.rawT[i-1]&&!Object.is(e,this.rawV[i-1])&&(this.rawV[i-1]=e,this.version++,!0):(!i||!Object.is(e,this.rawV[i-1]))&&(this.rawT.push(t),this.rawV.push(e),this.version++,!0)}prune(t){const e=(e,i)=>{let s=xt(e,t)-1;s>0&&(e.splice(0,s),i.splice(0,s),this.version++)};e(this.statT,this.statV),e(this.rawT,this.rawV)}series(){if(this.memo?.version===this.version)return this.memo.data;let t;if(this.statT.length)if(this.rawT.length){const e=Number.isFinite(this.rawFrom)?xt(this.statT,this.rawFrom):this.statT.length,i=xt(this.rawT,e?this.statT[e-1]+1:-1/0);t={t:this.statT.slice(0,e).concat(this.rawT.slice(i)),v:this.statV.slice(0,e).concat(this.rawV.slice(i))}}else t={t:this.statT,v:this.statV};else t={t:this.rawT,v:this.rawV};return this.memo={version:this.version,data:t},t}}const yt=new Map;function wt(t){let e=yt.get(t);if(!e&&(e=new bt,yt.set(t,e),yt.size>60)){const t=[...yt.entries()].sort((t,e)=>(t[1].lastUsed??0)-(e[1].lastUsed??0))[0];yt.delete(t[0])}return e.lastUsed=Date.now(),e}function xt(t,e){let i=0,s=t.length;for(;i<s;){const n=i+s>>>1;t[n]<e?i=n+1:s=n}return i}const St=t=>{if("number"==typeof t)return t;if("string"!=typeof t||""===t)return NaN;const e=Number(t);return Number.isFinite(e)?e:NaN},At=t=>"number"==typeof t?t<1e11?1e3*t:t:Date.parse(String(t));class Et{constructor(t,e){var i,s;this.hass=t,this.opts=e,this.stores=new Map,this.unsubs=[],this.disposed=!1,this.changeScheduled=!1,this.entities=[...new Set(e.entities)],this.useStatistics=e.hoursToShow>e.statisticsThreshold,this.period=(i=e.hoursToShow,"5minute"===(s=e.statisticsPeriod)||"hour"===s||"day"===s?s:i<=72?"5minute":i<=1440?"hour":"day");const n=this.useStatistics?this.period:"raw";for(const t of this.entities)this.stores.set(t,wt(`${t}|${e.hoursToShow}|${n}`))}get windowStart(){return Date.now()-36e5*this.opts.hoursToShow}setHass(t){this.hass=t}series(t){return this.stores.get(t)?.series()}version(){let t=0;for(const e of this.stores.values())t+=e.version;return t}async start(){const t=this.windowStart;for(const e of this.stores.values())e.prune(t);if(this.useStatistics){const e=this.entities.filter(t=>!this.stores.get(t).statsLoaded);if(e.length&&(await this.loadStatistics(e,t),this.disposed))return}const e=new Map;for(const i of this.entities){const s=this.stores.get(i);let n;s.rawT.length||Number.isFinite(s.rawUntil)?n=Number.isFinite(s.rawUntil)?s.rawUntil:s.rawT[s.rawT.length-1]:(n=Number.isFinite(s.statsEnd)?s.statsEnd:t,s.rawFrom=n),n=Math.max(n,t),n=6e4*Math.floor(n/6e4);const o=e.get(n)??[];o.push(i),e.set(n,o)}for(const[t,i]of e)this.subscribe(t,i);if(this.useStatistics){const t=Math.max($t[this.period],9e5);this.timer=window.setInterval(()=>this.compact(),t)}this.notify()}subscribe(t,e){this.hass.connection.subscribeMessage(t=>this.onStream(t),{type:"history/stream",entity_ids:e,start_time:new Date(t).toISOString(),minimal_response:!0,no_attributes:!0,significant_changes_only:!1}).then(t=>{this.disposed?t().catch(()=>{}):this.unsubs.push(t)},t=>console.warn("best-number-card: history subscription failed",t));for(const t of e)this.stores.get(t).rawUntil=NaN}onStream(t){if(!t?.states)return;let e=!1;for(const[i,s]of Object.entries(t.states)){const t=this.stores.get(i);if(t)for(const i of s){const s=At(i.lu??i.lc);Number.isFinite(s)&&(e=t.appendRaw(s,St(i.s))||e)}}e&&this.notify()}async fetchStatistics(t,e){return this.hass.callWS({type:"recorder/statistics_during_period",start_time:new Date(e).toISOString(),statistic_ids:t,period:this.period,types:["mean","state"]})}async loadStatistics(t,e){const i=Math.floor(e/$t[this.period])*$t[this.period];let s={};try{s=await this.fetchStatistics(t,i)}catch(t){console.warn("best-number-card: statistics unavailable, using history",t)}for(const e of t)this.applyStats(e,s[e]),this.stores.get(e).statsLoaded=!0}applyStats(t,e){const i=this.stores.get(t);if(!i||!e?.length)return;const s=$t[this.period];for(const t of e){const e=At(t.start);if(!Number.isFinite(e)||i.statT.length&&e<=i.statT[i.statT.length-1])continue;const n=St(t.mean??t.state??NaN);i.statT.push(e),i.statV.push(n);const o=void 0!==t.end?At(t.end):e+s;i.statsEnd=Number.isFinite(o)?o:e+s}i.version++}async compact(){const t=this.entities.filter(t=>Number.isFinite(this.stores.get(t).statsEnd));if(!t.length||"hidden"===document.visibilityState)return;const e=Math.min(...t.map(t=>this.stores.get(t).statsEnd));let i;try{i=await this.fetchStatistics(t,e)}catch{return}if(!this.disposed){for(const e of t){const t=this.stores.get(e);this.applyStats(e,i[e]);const s=xt(t.rawT,t.statsEnd)-1;s>0&&(t.rawT.splice(0,s),t.rawV.splice(0,s)),t.rawFrom=t.statsEnd,t.prune(this.windowStart),t.version++}this.notify()}}notify(){this.changeScheduled||this.disposed||(this.changeScheduled=!0,queueMicrotask(()=>{this.changeScheduled=!1,this.disposed||this.opts.onChange()}))}dispose(){if(this.disposed)return;this.disposed=!0,this.timer&&clearInterval(this.timer);const t=Date.now();for(const e of this.stores.values())Number.isFinite(e.rawUntil)||(e.rawUntil=t);for(const t of this.unsubs)t().catch(()=>{});this.unsubs=[]}}function Nt(t,e,i,s){const n=new Float64Array(s).fill(NaN),o=new Float64Array(s).fill(NaN),a=new Float64Array(s).fill(NaN),r=new Uint8Array(s),{t:l,v:h}=t,c=l.length,d=(i-e)/s;let p=xt(l,e),u=p>0?h[p-1]:NaN;for(let t=0;t<s;t++){const m=e+t*d,_=t===s-1?i:m+d;let f=m,g=0,v=0,$=1/0,b=-1/0,y=0,w=0;const x=(t,e,i)=>{if(!Number.isFinite(t))return;const s=i-e;s>0&&(g+=t*s,v+=s),t<$&&($=t,y=e),t>b&&(b=t,w=e)};for(;p<c&&l[p]<_;)x(u,f,l[p]),u=h[p],f=Math.max(l[p],m),p++;x(u,f,_),$!==1/0&&(n[t]=v>0?g/v:($+b)/2,o[t]=$,a[t]=b,r[t]=y<=w?1:0)}return{start:e,end:i,mean:n,min:o,max:a,minFirst:r}}function kt(t,e,i,s){const n=t.mean.length,o=[];let a=[];const r=n>1?i/(n-1):0;for(let l=0;l<n;l++){const h=n>1?l*r:i;if(Number.isNaN(t.mean[l]))a.length&&o.push(a),a=[];else if(2===e&&t.max[l]-t.min[l]>0){const e=r/4,n=t.minFirst[l]?t.min[l]:t.max[l],o=t.minFirst[l]?t.max[l]:t.min[l];a.push([Math.max(0,h-e),s(n)],[Math.min(i,h+e),s(o)])}else a.push([h,s(t.mean[l])])}return a.length&&o.push(a),o}const Mt=t=>Math.round(10*t)/10;function Tt(t,e){if(!t.length)return"";if(1===t.length)return`M${Mt(t[0][0])},${Mt(t[0][1])}h0.01`;let i=`M${Mt(t[0][0])},${Mt(t[0][1])}`;if(!e||t.length<3){for(let e=1;e<t.length;e++)i+=`L${Mt(t[e][0])},${Mt(t[e][1])}`;return i}for(let e=1;e<t.length-1;e++){const[s,n]=t[e],o=(s+t[e+1][0])/2,a=(n+t[e+1][1])/2;i+=`Q${Mt(s)},${Mt(n)} ${Mt(o)},${Mt(a)}`}const s=t[t.length-1];return i+=`L${Mt(s[0])},${Mt(s[1])}`,i}function Ct(t,e,i){const s=t.mean.length;if(!s)return NaN;const n=Math.min(s-1,Math.max(0,Math.round(e/i*(s-1))));return t.mean[n]}function Pt(t){let e=1/0,i=-1/0;for(const s of t)for(let t=0;t<s.min.length;t++)s.min[t]<e&&(e=s.min[t]),s.max[t]>i&&(i=s.max[t]);return[e,i]}const Ut={"card.no_entities":"No entities configured","card.not_found":"Entity not available","card.all_hidden":"All entities hidden","editor.section.general":"General","editor.section.graph":"Graph","editor.section.data":"Data loading","editor.section.entities":"Entities","editor.section.interactions":"Interactions","editor.add_entity":"Add entity","editor.remove":"Remove","editor.move_up":"Move up","editor.move_down":"Move down","editor.color_scale":"Color scale","editor.color_scale_help":"Stops are sorted by value. Two stops with the same value create a hard jump (e.g. 95 orange + 95 dark red).","editor.add_stop":"Add color stop","editor.visibility":"Visibility","field.name":"Name","field.icon":"Icon","field.graph":"Graph type","field.detail":"Detail","field.hours_to_show":"Hours to show","field.height":"Graph height (px, empty = automatic)","field.smoothing":"Smooth line","field.value_display":"Values in header","field.legend_icon":"Marker next to values","field.end_labels":"Labels at the end of the line","field.tooltip":"Tooltip on hover","field.compact":"Start in compact mode","field.statistics_threshold":"Use long-term statistics above (hours)","field.statistics_period":"Statistics resolution","field.limits_min":"Minimum (all scales)","field.limits_max":"Maximum (all scales)","field.theme":"Theme","field.tap_action":"Tap action","field.hold_action":"Hold action","field.double_tap_action":"Double tap action","field.entity":"Entity","field.unit":"Unit","field.decimals":"Decimals","field.color":"Line color (without color scale)","field.color_scale_mode":"Color scale mode","field.scale":"Scale group (same name = shared y-axis)","field.min":"Minimum","field.max":"Maximum","field.fill":"Fill area","field.line_width":"Line width","field.show_value":"Show value","field.show_graph":"Show in graph","field.hide_below":"Hide while below","field.hide_above":"Hide while above","field.hide_unavailable":"Hide while unavailable","field.value":"Value","opt.line":"Line","opt.none":"None","opt.detail_1":"Low (smooth average)","opt.detail_2":"High (keeps every peak)","opt.primary":"First entity only (like sensor card)","opt.all":"All entities","opt.dot":"Colored dot","opt.icon":"Icon","opt.value":"Current value","opt.icon_value":"Icon and value","opt.auto":"Automatic","opt.5minute":"5 minutes","opt.hour":"Hour","opt.day":"Day","opt.gradient":"Gradient","opt.step":"Steps"},Ft={en:Ut,de:{"card.no_entities":"Keine Entitäten konfiguriert","card.not_found":"Entität nicht verfügbar","card.all_hidden":"Alle Entitäten ausgeblendet","editor.section.general":"Allgemein","editor.section.graph":"Diagramm","editor.section.data":"Datenabfrage","editor.section.entities":"Entitäten","editor.section.interactions":"Interaktionen","editor.add_entity":"Entität hinzufügen","editor.remove":"Entfernen","editor.move_up":"Nach oben","editor.move_down":"Nach unten","editor.color_scale":"Farbskala","editor.color_scale_help":"Die Stufen werden nach Wert sortiert. Zwei Stufen mit gleichem Wert erzeugen einen harten Sprung (z. B. 95 orange + 95 dunkelrot).","editor.add_stop":"Farbstufe hinzufügen","editor.visibility":"Sichtbarkeit","field.name":"Name","field.icon":"Symbol","field.graph":"Diagrammtyp","field.detail":"Detailgrad","field.hours_to_show":"Angezeigte Stunden","field.height":"Diagrammhöhe (px, leer = automatisch)","field.smoothing":"Linie glätten","field.value_display":"Werte in der Kopfzeile","field.legend_icon":"Markierung neben den Werten","field.end_labels":"Beschriftung am Linienende","field.tooltip":"Tooltip beim Überfahren","field.compact":"Im Kompaktmodus starten","field.statistics_threshold":"Langzeitstatistik verwenden ab (Stunden)","field.statistics_period":"Auflösung der Statistik","field.limits_min":"Minimum (alle Skalen)","field.limits_max":"Maximum (alle Skalen)","field.theme":"Design","field.tap_action":"Aktion beim Tippen","field.hold_action":"Aktion beim Halten","field.double_tap_action":"Aktion bei Doppeltippen","field.entity":"Entität","field.unit":"Einheit","field.decimals":"Nachkommastellen","field.color":"Linienfarbe (ohne Farbskala)","field.color_scale_mode":"Art der Farbskala","field.scale":"Skalengruppe (gleicher Name = gemeinsame Y-Achse)","field.min":"Minimum","field.max":"Maximum","field.fill":"Fläche füllen","field.line_width":"Linienstärke","field.show_value":"Wert anzeigen","field.show_graph":"Im Diagramm anzeigen","field.hide_below":"Ausblenden, solange unter","field.hide_above":"Ausblenden, solange über","field.hide_unavailable":"Ausblenden, solange nicht verfügbar","field.value":"Wert","opt.line":"Linie","opt.none":"Keine","opt.detail_1":"Niedrig (geglätteter Mittelwert)","opt.detail_2":"Hoch (alle Spitzen bleiben erhalten)","opt.primary":"Nur erste Entität (wie Sensorkarte)","opt.all":"Alle Entitäten","opt.dot":"Farbiger Punkt","opt.icon":"Symbol","opt.value":"Aktueller Wert","opt.icon_value":"Symbol und Wert","opt.auto":"Automatisch","opt.5minute":"5 Minuten","opt.hour":"Stunde","opt.day":"Tag","opt.gradient":"Verlauf","opt.step":"Stufen"}};function Ht(t,e){const i=(t?.locale?.language??t?.language??"en").split("-")[0];return Ft[i]?.[e]??Ut[e]??e}const Lt=new Map;function Dt(t,e,i){if(!Number.isFinite(e))return"–";const s=function(t){const e=t?.locale?.language??t?.language??"en";switch(t?.locale?.number_format){case"comma_decimal":return"en-US";case"decimal_comma":return"de-DE";case"space_comma":return"fr-FR";case"system":return;default:return e}}(t),n="none"===t?.locale?.number_format,o=`${s}|${i}|${n}`;let a=Lt.get(o);return a||(a=new Intl.NumberFormat(s,{useGrouping:!n,...void 0!==i?{minimumFractionDigits:i,maximumFractionDigits:i}:{maximumFractionDigits:2}}),Lt.set(o,a)),a.format(e)}const Ot="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z",zt={number:{mode:"box",step:"any"}};function Rt(t,e,i="opt."){return{select:{mode:"dropdown",options:e.map(e=>({value:e,label:Ht(t,`${i}${e}`)}))}}}function It(t){const e={};for(const[i,s]of Object.entries(t))null!=s&&""!==s&&(e[i]=s);return e}class Vt extends lt{constructor(){super(...arguments),this._expanded=-1,this._l=t=>Ht(this.hass,t),this._computeLabel=t=>this._l(`field.${t.name}`)}setConfig(t){const e=(t.entities??[]).map(t=>"string"==typeof t?{entity:t}:t);this._config={...t,entities:e}}connectedCallback(){super.connectedCallback();const t=t=>customElements.get(t)?.getConfigElement?.();customElements.get("ha-form")||t("hui-button-card"),customElements.get("ha-entity-picker")||t("hui-entities-card")}_emit(t){this._config=t,this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:t},bubbles:!0,composed:!0}))}_cardSchema(){const t=this.hass,e="toggle-compact"===this._config?.tap_action?.action;return[{type:"expandable",flatten:!0,expanded:!0,title:this._l("editor.section.general"),schema:[{type:"grid",name:"",schema:[{name:"name",selector:{text:{}}},{name:"icon",selector:{icon:{}}}]},{name:"value_display",selector:Rt(t,["all","primary","none"])},{name:"legend_icon",selector:Rt(t,["dot","icon","none"])},{name:"compact",selector:{boolean:{}}},{name:"theme",selector:{theme:{}}}]},{type:"expandable",flatten:!0,title:this._l("editor.section.graph"),schema:[{type:"grid",name:"",schema:[{name:"graph",selector:Rt(t,["line","none"])},{name:"detail",selector:Rt(t,["1","2"],"opt.detail_")},{name:"hours_to_show",selector:{number:{mode:"box",min:.1,step:"any"}}},{name:"height",selector:{number:{mode:"box",min:20,step:1}}},{name:"limits_min",selector:zt},{name:"limits_max",selector:zt}]},{name:"end_labels",selector:Rt(t,["none","value","icon","icon_value"])},{type:"grid",name:"",schema:[{name:"smoothing",selector:{boolean:{}}},{name:"tooltip",selector:{boolean:{}}}]}]},{type:"expandable",flatten:!0,title:this._l("editor.section.data"),schema:[{type:"grid",name:"",schema:[{name:"statistics_threshold",selector:{number:{mode:"box",min:0,step:"any"}}},{name:"statistics_period",selector:Rt(t,["auto","5minute","hour","day"])}]}]},{type:"expandable",flatten:!0,title:this._l("editor.section.interactions"),schema:[{name:"compact_on_tap",selector:{boolean:{}}},...e?[]:[{name:"tap_action",selector:{ui_action:{}}}],{name:"hold_action",selector:{ui_action:{}}},{name:"double_tap_action",selector:{ui_action:{}}}]}]}_defaults(){return{graph:"line",detail:1,hours_to_show:24,smoothing:!0,tooltip:!0,compact:!1,statistics_threshold:6,statistics_period:"auto",end_labels:"none",legend_icon:"dot",value_display:1===this._config.entities.length?"primary":"all"}}_cardData(){const t=this._config;return{...this._defaults(),...t,detail:String(t.detail??1),limits_min:t.limits?.min,limits_max:t.limits?.max,compact_on_tap:"toggle-compact"===t.tap_action?.action}}_cardChanged(t){t.stopPropagation();const{limits_min:e,limits_max:i,compact_on_tap:s,entities:n,...o}=t.detail.value,a={...o,entities:this._config.entities},r=It({min:e,max:i});Object.keys(r).length?a.limits=r:delete a.limits,s?a.tap_action={action:"toggle-compact"}:"toggle-compact"===a.tap_action?.action&&delete a.tap_action,void 0!==a.detail&&(a.detail=Number(a.detail));for(const[t,e]of Object.entries(this._defaults()))a[t]!==e||t in this._config||delete a[t];this._emit(It(a))}_entitySchema(t){return[{name:"entity",selector:{entity:{}}},{type:"grid",name:"",schema:[{name:"name",selector:{text:{}}},{name:"icon",selector:{icon:{}}},{name:"unit",selector:{text:{}}},{name:"decimals",selector:{number:{mode:"box",min:0,max:6,step:1}}},{name:"color",selector:{text:{}}},{name:"line_width",selector:{number:{mode:"box",min:.5,max:12,step:.5}}},{name:"scale",selector:{text:{}}},{name:"color_scale_mode",selector:Rt(this.hass,["gradient","step"])},{name:"min",selector:zt},{name:"max",selector:zt}]},{type:"grid",name:"",schema:[{name:"show_value",selector:{boolean:{}}},{name:"show_graph",selector:{boolean:{}}},{name:"fill",selector:{boolean:{}}}]},{type:"expandable",flatten:!0,title:this._l("editor.visibility"),expanded:void 0!==t.hide_below||void 0!==t.hide_above||!!t.hide_unavailable,schema:[{type:"grid",name:"",schema:[{name:"hide_below",selector:zt},{name:"hide_above",selector:zt}]},{name:"hide_unavailable",selector:{boolean:{}}}]}]}_updateEntity(t,e){const i=[...this._config.entities];null===e?i.splice(t,1):i[t]=It(e),this._emit({...this._config,entities:i})}_move(t,e){const i=[...this._config.entities],s=t+e;s<0||s>=i.length||([i[t],i[s]]=[i[s],i[t]],this._expanded=s,this._emit({...this._config,entities:i}))}_addEntity(t){t.stopPropagation();const e=t.detail.value?.entity;if(!e)return;const i=[...this._config.entities,{entity:e}];this._expanded=i.length-1,this._emit({...this._config,entities:i}),t.target.data={}}_setStops(t,e){const i={...this._config.entities[t]};e.length?i.color_scale=e:delete i.color_scale,this._updateEntity(t,i)}_renderStops(t,e){const i=e.color_scale??[],s=(e,s)=>{const n=i.map((t,i)=>i===e?{...t,...s}:t);this._setStops(t,n)};return j`<div class="stops">
-      <div class="stops-title">${this._l("editor.color_scale")}</div>
-      <div class="help">${this._l("editor.color_scale_help")}</div>
-      ${i.map((e,n)=>j`<div class="stop">
+const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,i=Symbol(),s=new WeakMap;let o=class{constructor(t,e,s){if(this._$cssResult$=!0,s!==i)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e}get styleSheet(){let t=this.o;const i=this.t;if(e&&void 0===t){const e=void 0!==i&&1===i.length;e&&(t=s.get(i)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&s.set(i,t))}return t}toString(){return this.cssText}};const n=(t,...e)=>{const s=1===t.length?t[0]:e.reduce((e,i,s)=>e+(t=>{if(!0===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(i)+t[s+1],t[0]);return new o(s,t,i)},r=e?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const i of t.cssRules)e+=i.cssText;return(t=>new o("string"==typeof t?t:t+"",void 0,i))(e)})(t):t,{is:a,defineProperty:l,getOwnPropertyDescriptor:c,getOwnPropertyNames:h,getOwnPropertySymbols:d,getPrototypeOf:p}=Object,u=globalThis,m=u.trustedTypes,f=m?m.emptyScript:"",_=u.reactiveElementPolyfillSupport,g=(t,e)=>t,v={toAttribute(t,e){switch(e){case Boolean:t=t?f:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t)}return t},fromAttribute(t,e){let i=t;switch(e){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t)}catch(t){i=null}}return i}},b=(t,e)=>!a(t,e),y={attribute:!0,type:String,converter:v,reflect:!1,useDefault:!1,hasChanged:b};Symbol.metadata??=Symbol("metadata"),u.litPropertyMetadata??=new WeakMap;let $=class extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,e=y){if(e.state&&(e.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(t)&&((e=Object.create(e)).wrapped=!0),this.elementProperties.set(t,e),!e.noAccessor){const i=Symbol(),s=this.getPropertyDescriptor(t,i,e);void 0!==s&&l(this.prototype,t,s)}}static getPropertyDescriptor(t,e,i){const{get:s,set:o}=c(this.prototype,t)??{get(){return this[e]},set(t){this[e]=t}};return{get:s,set(e){const n=s?.call(this);o?.call(this,e),this.requestUpdate(t,n,i)},configurable:!0,enumerable:!0}}static getPropertyOptions(t){return this.elementProperties.get(t)??y}static _$Ei(){if(this.hasOwnProperty(g("elementProperties")))return;const t=p(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties)}static finalize(){if(this.hasOwnProperty(g("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(g("properties"))){const t=this.properties,e=[...h(t),...d(t)];for(const i of e)this.createProperty(i,t[i])}const t=this[Symbol.metadata];if(null!==t){const e=litPropertyMetadata.get(t);if(void 0!==e)for(const[t,i]of e)this.elementProperties.set(t,i)}this._$Eh=new Map;for(const[t,e]of this.elementProperties){const i=this._$Eu(t,e);void 0!==i&&this._$Eh.set(i,t)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(t){const e=[];if(Array.isArray(t)){const i=new Set(t.flat(1/0).reverse());for(const t of i)e.unshift(r(t))}else void 0!==t&&e.push(r(t));return e}static _$Eu(t,e){const i=e.attribute;return!1===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this))}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.()}removeController(t){this._$EO?.delete(t)}_$E_(){const t=new Map,e=this.constructor.elementProperties;for(const i of e.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t)}createRenderRoot(){const i=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return((i,s)=>{if(e)i.adoptedStyleSheets=s.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of s){const s=document.createElement("style"),o=t.litNonce;void 0!==o&&s.setAttribute("nonce",o),s.textContent=e.cssText,i.appendChild(s)}})(i,this.constructor.elementStyles),i}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(t=>t.hostConnected?.())}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.())}attributeChangedCallback(t,e,i){this._$AK(t,i)}_$ET(t,e){const i=this.constructor.elementProperties.get(t),s=this.constructor._$Eu(t,i);if(void 0!==s&&!0===i.reflect){const o=(void 0!==i.converter?.toAttribute?i.converter:v).toAttribute(e,i.type);this._$Em=t,null==o?this.removeAttribute(s):this.setAttribute(s,o),this._$Em=null}}_$AK(t,e){const i=this.constructor,s=i._$Eh.get(t);if(void 0!==s&&this._$Em!==s){const t=i.getPropertyOptions(s),o="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:v;this._$Em=s;const n=o.fromAttribute(e,t.type);this[s]=n??this._$Ej?.get(s)??n,this._$Em=null}}requestUpdate(t,e,i,s=!1,o){if(void 0!==t){const n=this.constructor;if(!1===s&&(o=this[t]),i??=n.getPropertyOptions(t),!((i.hasChanged??b)(o,e)||i.useDefault&&i.reflect&&o===this._$Ej?.get(t)&&!this.hasAttribute(n._$Eu(t,i))))return;this.C(t,e,i)}!1===this.isUpdatePending&&(this._$ES=this._$EP())}C(t,e,{useDefault:i,reflect:s,wrapped:o},n){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,n??e??this[t]),!0!==o||void 0!==n)||(this._$AL.has(t)||(this.hasUpdated||i||(e=void 0),this._$AL.set(t,e)),!0===s&&this._$Em!==t&&(this._$Eq??=new Set).add(t))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(t){Promise.reject(t)}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,e]of this._$Ep)this[t]=e;this._$Ep=void 0}const t=this.constructor.elementProperties;if(t.size>0)for(const[e,i]of t){const{wrapped:t}=i,s=this[e];!0!==t||this._$AL.has(e)||void 0===s||this.C(e,void 0,i,s)}}let t=!1;const e=this._$AL;try{t=this.shouldUpdate(e),t?(this.willUpdate(e),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(e)):this._$EM()}catch(e){throw t=!1,this._$EM(),e}t&&this._$AE(e)}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(t)),this.updated(t)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return!0}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM()}updated(t){}firstUpdated(t){}};$.elementStyles=[],$.shadowRootOptions={mode:"open"},$[g("elementProperties")]=new Map,$[g("finalized")]=new Map,_?.({ReactiveElement:$}),(u.reactiveElementVersions??=[]).push("2.1.2");const x=globalThis,w=t=>t,S=x.trustedTypes,A=S?S.createPolicy("lit-html",{createHTML:t=>t}):void 0,k="$lit$",N=`lit$${Math.random().toFixed(9).slice(2)}$`,E="?"+N,M=`<${E}>`,T=document,C=()=>T.createComment(""),H=t=>null===t||"object"!=typeof t&&"function"!=typeof t,F=Array.isArray,V="[ \t\n\f\r]",D=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,U=/-->/g,P=/>/g,z=RegExp(`>|${V}(?:([^\\s"'>=/]+)(${V}*=${V}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),O=/'/g,L=/"/g,I=/^(?:script|style|textarea|title)$/i,j=t=>(e,...i)=>({_$litType$:t,strings:e,values:i}),R=j(1),W=j(2),G=Symbol.for("lit-noChange"),B=Symbol.for("lit-nothing"),K=new WeakMap,Y=T.createTreeWalker(T,129);function X(t,e){if(!F(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==A?A.createHTML(e):e}const Z=(t,e)=>{const i=t.length-1,s=[];let o,n=2===e?"<svg>":3===e?"<math>":"",r=D;for(let e=0;e<i;e++){const i=t[e];let a,l,c=-1,h=0;for(;h<i.length&&(r.lastIndex=h,l=r.exec(i),null!==l);)h=r.lastIndex,r===D?"!--"===l[1]?r=U:void 0!==l[1]?r=P:void 0!==l[2]?(I.test(l[2])&&(o=RegExp("</"+l[2],"g")),r=z):void 0!==l[3]&&(r=z):r===z?">"===l[0]?(r=o??D,c=-1):void 0===l[1]?c=-2:(c=r.lastIndex-l[2].length,a=l[1],r=void 0===l[3]?z:'"'===l[3]?L:O):r===L||r===O?r=z:r===U||r===P?r=D:(r=z,o=void 0);const d=r===z&&t[e+1].startsWith("/>")?" ":"";n+=r===D?i+M:c>=0?(s.push(a),i.slice(0,c)+k+i.slice(c)+N+d):i+N+(-2===c?e:d)}return[X(t,n+(t[i]||"<?>")+(2===e?"</svg>":3===e?"</math>":"")),s]};class q{constructor({strings:t,_$litType$:e},i){let s;this.parts=[];let o=0,n=0;const r=t.length-1,a=this.parts,[l,c]=Z(t,e);if(this.el=q.createElement(l,i),Y.currentNode=this.el.content,2===e||3===e){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes)}for(;null!==(s=Y.nextNode())&&a.length<r;){if(1===s.nodeType){if(s.hasAttributes())for(const t of s.getAttributeNames())if(t.endsWith(k)){const e=c[n++],i=s.getAttribute(t).split(N),r=/([.?@])?(.*)/.exec(e);a.push({type:1,index:o,name:r[2],strings:i,ctor:"."===r[1]?it:"?"===r[1]?st:"@"===r[1]?ot:et}),s.removeAttribute(t)}else t.startsWith(N)&&(a.push({type:6,index:o}),s.removeAttribute(t));if(I.test(s.tagName)){const t=s.textContent.split(N),e=t.length-1;if(e>0){s.textContent=S?S.emptyScript:"";for(let i=0;i<e;i++)s.append(t[i],C()),Y.nextNode(),a.push({type:2,index:++o});s.append(t[e],C())}}}else if(8===s.nodeType)if(s.data===E)a.push({type:2,index:o});else{let t=-1;for(;-1!==(t=s.data.indexOf(N,t+1));)a.push({type:7,index:o}),t+=N.length-1}o++}}static createElement(t,e){const i=T.createElement("template");return i.innerHTML=t,i}}function J(t,e,i=t,s){if(e===G)return e;let o=void 0!==s?i._$Co?.[s]:i._$Cl;const n=H(e)?void 0:e._$litDirective$;return o?.constructor!==n&&(o?._$AO?.(!1),void 0===n?o=void 0:(o=new n(t),o._$AT(t,i,s)),void 0!==s?(i._$Co??=[])[s]=o:i._$Cl=o),void 0!==o&&(e=J(t,o._$AS(t,e.values),o,s)),e}class Q{constructor(t,e){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=e}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:e},parts:i}=this._$AD,s=(t?.creationScope??T).importNode(e,!0);Y.currentNode=s;let o=Y.nextNode(),n=0,r=0,a=i[0];for(;void 0!==a;){if(n===a.index){let e;2===a.type?e=new tt(o,o.nextSibling,this,t):1===a.type?e=new a.ctor(o,a.name,a.strings,this,t):6===a.type&&(e=new nt(o,this,t)),this._$AV.push(e),a=i[++r]}n!==a?.index&&(o=Y.nextNode(),n++)}return Y.currentNode=T,s}p(t){let e=0;for(const i of this._$AV)void 0!==i&&(void 0!==i.strings?(i._$AI(t,i,e),e+=i.strings.length-2):i._$AI(t[e])),e++}}class tt{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,e,i,s){this.type=2,this._$AH=B,this._$AN=void 0,this._$AA=t,this._$AB=e,this._$AM=i,this.options=s,this._$Cv=s?.isConnected??!0}get parentNode(){let t=this._$AA.parentNode;const e=this._$AM;return void 0!==e&&11===t?.nodeType&&(t=e.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,e=this){t=J(this,t,e),H(t)?t===B||null==t||""===t?(this._$AH!==B&&this._$AR(),this._$AH=B):t!==this._$AH&&t!==G&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):(t=>F(t)||"function"==typeof t?.[Symbol.iterator])(t)?this.k(t):this._(t)}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t))}_(t){this._$AH!==B&&H(this._$AH)?this._$AA.nextSibling.data=t:this.T(T.createTextNode(t)),this._$AH=t}$(t){const{values:e,_$litType$:i}=t,s="number"==typeof i?this._$AC(t):(void 0===i.el&&(i.el=q.createElement(X(i.h,i.h[0]),this.options)),i);if(this._$AH?._$AD===s)this._$AH.p(e);else{const t=new Q(s,this),i=t.u(this.options);t.p(e),this.T(i),this._$AH=t}}_$AC(t){let e=K.get(t.strings);return void 0===e&&K.set(t.strings,e=new q(t)),e}k(t){F(this._$AH)||(this._$AH=[],this._$AR());const e=this._$AH;let i,s=0;for(const o of t)s===e.length?e.push(i=new tt(this.O(C()),this.O(C()),this,this.options)):i=e[s],i._$AI(o),s++;s<e.length&&(this._$AR(i&&i._$AB.nextSibling,s),e.length=s)}_$AR(t=this._$AA.nextSibling,e){for(this._$AP?.(!1,!0,e);t!==this._$AB;){const e=w(t).nextSibling;w(t).remove(),t=e}}setConnected(t){void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t))}}class et{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,e,i,s,o){this.type=1,this._$AH=B,this._$AN=void 0,this.element=t,this.name=e,this._$AM=s,this.options=o,i.length>2||""!==i[0]||""!==i[1]?(this._$AH=Array(i.length-1).fill(new String),this.strings=i):this._$AH=B}_$AI(t,e=this,i,s){const o=this.strings;let n=!1;if(void 0===o)t=J(this,t,e,0),n=!H(t)||t!==this._$AH&&t!==G,n&&(this._$AH=t);else{const s=t;let r,a;for(t=o[0],r=0;r<o.length-1;r++)a=J(this,s[i+r],e,r),a===G&&(a=this._$AH[r]),n||=!H(a)||a!==this._$AH[r],a===B?t=B:t!==B&&(t+=(a??"")+o[r+1]),this._$AH[r]=a}n&&!s&&this.j(t)}j(t){t===B?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"")}}class it extends et{constructor(){super(...arguments),this.type=3}j(t){this.element[this.name]=t===B?void 0:t}}class st extends et{constructor(){super(...arguments),this.type=4}j(t){this.element.toggleAttribute(this.name,!!t&&t!==B)}}class ot extends et{constructor(t,e,i,s,o){super(t,e,i,s,o),this.type=5}_$AI(t,e=this){if((t=J(this,t,e,0)??B)===G)return;const i=this._$AH,s=t===B&&i!==B||t.capture!==i.capture||t.once!==i.once||t.passive!==i.passive,o=t!==B&&(i===B||s);s&&this.element.removeEventListener(this.name,this,i),o&&this.element.addEventListener(this.name,this,t),this._$AH=t}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t)}}class nt{constructor(t,e,i){this.element=t,this.type=6,this._$AN=void 0,this._$AM=e,this.options=i}get _$AU(){return this._$AM._$AU}_$AI(t){J(this,t)}}const rt=x.litHtmlPolyfillSupport;rt?.(q,tt),(x.litHtmlVersions??=[]).push("3.3.3");const at=globalThis;class lt extends ${constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const e=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=((t,e,i)=>{const s=i?.renderBefore??e;let o=s._$litPart$;if(void 0===o){const t=i?.renderBefore??null;s._$litPart$=o=new tt(e.insertBefore(C(),t),t,void 0,i??{})}return o._$AI(t),o})(e,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return G}}lt._$litElement$=!0,lt.finalized=!0,at.litElementHydrateSupport?.({LitElement:lt});const ct=at.litElementPolyfillSupport;ct?.({LitElement:lt}),(at.litElementVersions??=[]).push("4.2.2");var ht="0.1.0";function dt(t,e,i){t.dispatchEvent(new CustomEvent(e,{detail:i,bubbles:!0,composed:!0}))}const pt=new Map;let ut;function mt(t,e){let i=t.trim();const s=/^var\(\s*(--[^,)\s]+)\s*(?:,\s*([^)]+))?\)$/.exec(i);if(s){return i=(e?getComputedStyle(e).getPropertyValue(s[1]).trim():"")||s[2]?.trim()||"#000",mt(i)}const o=pt.get(i);if(o)return o;let n=ft(i);return n||"undefined"==typeof document||(ut??=document.createElement("canvas").getContext("2d"),ut&&(ut.fillStyle="#000",ut.fillStyle=i,n=ft(String(ut.fillStyle)))),n??=[0,0,0,1],pt.set(i,n),n}function ft(t){let e=/^#([0-9a-f]{3,8})$/i.exec(t);if(e){let t=e[1];if(3!==t.length&&4!==t.length||(t=[...t].map(t=>t+t).join("")),6!==t.length&&8!==t.length)return null;const i=e=>parseInt(t.slice(e,e+2),16);return[i(0),i(2),i(4),8===t.length?i(6)/255:1]}if(e=/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+%?))?\s*\)$/i.exec(t),e){let t=1;return void 0!==e[4]&&(t=e[4].endsWith("%")?parseFloat(e[4])/100:parseFloat(e[4])),[+e[1],+e[2],+e[3],t]}return null}function _t([t,e,i,s]){const o=t=>Math.round(t);return s>=1?`rgb(${o(t)},${o(e)},${o(i)})`:`rgba(${o(t)},${o(e)},${o(i)},${+s.toFixed(3)})`}function gt(t){return t.filter(t=>t&&Number.isFinite(Number(t.value))&&t.color).map((t,e)=>({s:{value:Number(t.value),color:String(t.color)},i:e})).sort((t,e)=>t.s.value-e.s.value||t.i-e.i).map(t=>t.s)}function vt(t,e,i,s){const o=t.length;if(!o||!Number.isFinite(i))return s(t[0]?.color??"#000");if(i<t[0].value)return s(t[0].color);let n=0;for(;n+1<o&&t[n+1].value<=i;)n++;if("step"===e||n===o-1)return s(t[n].color);const r=t[n],a=t[n+1],l=(i-r.value)/(a.value-r.value);return function(t,e,i){return[t[0]+(e[0]-t[0])*i,t[1]+(e[1]-t[1])*i,t[2]+(e[2]-t[2])*i,t[3]+(e[3]-t[3])*i]}(s(r.color),s(a.color),l)}function bt(t,e,i,s,o){const n=s-i;if(!(t.length&&n>0)){const s=_t(vt(t,e,i,o));return[{offset:0,color:s},{offset:1,color:s}]}const r=t=>(t-i)/n,a=[{offset:0,color:_t(vt(t,e,i,o))}];let l=vt(t,e,i,o);for(const n of t){if(n.value<=i||n.value>=s)continue;const t=r(n.value);"step"===e?(a.push({offset:t,color:_t(l)}),l=o(n.color),a.push({offset:t,color:_t(l)})):a.push({offset:t,color:_t(o(n.color))})}return a.push({offset:1,color:_t(vt(t,e,s,o))}),a}function yt(t,e,i,s){const o=Math.min(i,s),n=Math.max(i,s);if(o===n)return!1;if("step"===e)return t.some(t=>t.value>o&&t.value<=n);for(let e=0;e+1<t.length;e++)if(t[e].value===t[e+1].value&&t[e].value>o&&t[e].value<=n)return!0;return!1}const $t={"5minute":3e5,hour:36e5,day:864e5};class xt{constructor(){this.statT=[],this.statV=[],this.statsEnd=NaN,this.rawT=[],this.rawV=[],this.rawFrom=NaN,this.rawUntil=NaN,this.statsLoaded=!1,this.version=0}appendRaw(t,e){const i=this.rawT.length;return i&&t<=this.rawT[i-1]?t===this.rawT[i-1]&&!Object.is(e,this.rawV[i-1])&&(this.rawV[i-1]=e,this.version++,!0):(!i||!Object.is(e,this.rawV[i-1]))&&(this.rawT.push(t),this.rawV.push(e),this.version++,!0)}prune(t){const e=(e,i)=>{let s=At(e,t)-1;s>0&&(e.splice(0,s),i.splice(0,s),this.version++)};e(this.statT,this.statV),e(this.rawT,this.rawV)}series(){if(this.memo?.version===this.version)return this.memo.data;let t;if(this.statT.length)if(this.rawT.length){const e=Number.isFinite(this.rawFrom)?At(this.statT,this.rawFrom):this.statT.length,i=At(this.rawT,e?this.statT[e-1]+1:-1/0);t={t:this.statT.slice(0,e).concat(this.rawT.slice(i)),v:this.statV.slice(0,e).concat(this.rawV.slice(i))}}else t={t:this.statT,v:this.statV};else t={t:this.rawT,v:this.rawV};return this.memo={version:this.version,data:t},t}}const wt=new Map;function St(t){let e=wt.get(t);if(!e&&(e=new xt,wt.set(t,e),wt.size>60)){const t=[...wt.entries()].sort((t,e)=>(t[1].lastUsed??0)-(e[1].lastUsed??0))[0];wt.delete(t[0])}return e.lastUsed=Date.now(),e}function At(t,e){let i=0,s=t.length;for(;i<s;){const o=i+s>>>1;t[o]<e?i=o+1:s=o}return i}const kt=t=>{if("number"==typeof t)return t;if("string"!=typeof t||""===t)return NaN;const e=Number(t);return Number.isFinite(e)?e:NaN},Nt=t=>"number"==typeof t?t<1e11?1e3*t:t:Date.parse(String(t));class Et{constructor(t,e){var i,s;this.hass=t,this.opts=e,this.stores=new Map,this.unsubs=[],this.disposed=!1,this.changeScheduled=!1,this.pendingGroups=0,this.loaded=!1,this.entities=[...new Set(e.entities)],this.useStatistics=e.hoursToShow>e.statisticsThreshold,this.period=(i=e.hoursToShow,"5minute"===(s=e.statisticsPeriod)||"hour"===s||"day"===s?s:i<=72?"5minute":i<=1440?"hour":"day");const o=this.useStatistics?this.period:"raw";for(const t of this.entities)this.stores.set(t,St(`${t}|${e.hoursToShow}|${o}`))}get windowStart(){return Date.now()-36e5*this.opts.hoursToShow}setHass(t){this.hass=t}series(t){return this.stores.get(t)?.series()}version(){let t=0;for(const e of this.stores.values())t+=e.version;return t}async start(){const t=this.windowStart;for(const e of this.stores.values())e.prune(t);if(this.useStatistics){const e=this.entities.filter(t=>!this.stores.get(t).statsLoaded);if(e.length&&(await this.loadStatistics(e,t),this.disposed))return}const e=new Map;for(const i of this.entities){const s=this.stores.get(i);let o;s.rawT.length||Number.isFinite(s.rawUntil)?o=Number.isFinite(s.rawUntil)?s.rawUntil:s.rawT[s.rawT.length-1]:(o=Number.isFinite(s.statsEnd)?s.statsEnd:t,s.rawFrom=o),o=Math.max(o,t),o=6e4*Math.floor(o/6e4);const n=e.get(o)??[];n.push(i),e.set(o,n)}this.pendingGroups=e.size,e.size||(this.loaded=!0);for(const[t,i]of e)this.subscribe(t,i);if(this.useStatistics){const t=Math.max($t[this.period],9e5);this.timer=window.setInterval(()=>this.compact(),t)}this.notify()}subscribe(t,e){let i=!0;this.hass.connection.subscribeMessage(t=>{i&&(i=!1,--this.pendingGroups<=0&&(this.loaded=!0,this.notify())),this.onStream(t)},{type:"history/stream",entity_ids:e,start_time:new Date(t).toISOString(),minimal_response:!0,no_attributes:!0,significant_changes_only:!1}).then(t=>{this.disposed?t().catch(()=>{}):this.unsubs.push(t)},t=>{console.warn("best-number-card: history subscription failed",t),--this.pendingGroups<=0&&(this.loaded=!0,this.notify())});for(const t of e)this.stores.get(t).rawUntil=NaN}onStream(t){if(!t?.states)return;let e=!1;for(const[i,s]of Object.entries(t.states)){const t=this.stores.get(i);if(t)for(const i of s){const s=Nt(i.lu??i.lc);Number.isFinite(s)&&(e=t.appendRaw(s,kt(i.s))||e)}}e&&this.notify()}async fetchStatistics(t,e){return this.hass.callWS({type:"recorder/statistics_during_period",start_time:new Date(e).toISOString(),statistic_ids:t,period:this.period,types:["mean","state"]})}async loadStatistics(t,e){const i=Math.floor(e/$t[this.period])*$t[this.period];let s={};try{s=await this.fetchStatistics(t,i)}catch(t){console.warn("best-number-card: statistics unavailable, using history",t)}for(const e of t)this.applyStats(e,s[e]),this.stores.get(e).statsLoaded=!0}applyStats(t,e){const i=this.stores.get(t);if(!i||!e?.length)return;const s=$t[this.period];for(const t of e){const e=Nt(t.start);if(!Number.isFinite(e)||i.statT.length&&e<=i.statT[i.statT.length-1])continue;const o=kt(t.mean??t.state??NaN);i.statT.push(e),i.statV.push(o);const n=void 0!==t.end?Nt(t.end):e+s;i.statsEnd=Number.isFinite(n)?n:e+s}i.version++}async compact(){const t=this.entities.filter(t=>Number.isFinite(this.stores.get(t).statsEnd));if(!t.length||"hidden"===document.visibilityState)return;const e=Math.min(...t.map(t=>this.stores.get(t).statsEnd));let i;try{i=await this.fetchStatistics(t,e)}catch{return}if(!this.disposed){for(const e of t){const t=this.stores.get(e);this.applyStats(e,i[e]);const s=At(t.rawT,t.statsEnd)-1;s>0&&(t.rawT.splice(0,s),t.rawV.splice(0,s)),t.rawFrom=t.statsEnd,t.prune(this.windowStart),t.version++}this.notify()}}notify(){this.changeScheduled||this.disposed||(this.changeScheduled=!0,queueMicrotask(()=>{this.changeScheduled=!1,this.disposed||this.opts.onChange()}))}dispose(){if(this.disposed)return;this.disposed=!0,this.timer&&clearInterval(this.timer);const t=Date.now();for(const e of this.stores.values())Number.isFinite(e.rawUntil)||(e.rawUntil=t);for(const t of this.unsubs)t().catch(()=>{});this.unsubs=[]}}function Mt(t,e,i,s){const o=new Float64Array(s).fill(NaN),n=new Float64Array(s).fill(NaN),r=new Float64Array(s).fill(NaN),a=new Uint8Array(s),{t:l,v:c}=t,h=l.length,d=(i-e)/s;let p=At(l,e),u=p>0?c[p-1]:NaN;for(let t=0;t<s;t++){const m=e+t*d,f=t===s-1?i:m+d;let _=m,g=0,v=0,b=1/0,y=-1/0,$=0,x=0;const w=(t,e,i)=>{if(!Number.isFinite(t))return;const s=i-e;s>0&&(g+=t*s,v+=s),t<b&&(b=t,$=e),t>y&&(y=t,x=e)};for(;p<h&&l[p]<f;)w(u,_,l[p]),u=c[p],_=Math.max(l[p],m),p++;w(u,_,f),b!==1/0&&(o[t]=v>0?g/v:(b+y)/2,n[t]=b,r[t]=y,a[t]=$<=x?1:0)}return{start:e,end:i,mean:o,min:n,max:r,minFirst:a}}function Tt(t,e,i,s){const o=t.mean.length,n=[];let r=[];const a=o>1?i/(o-1):0;for(let l=0;l<o;l++){const c=o>1?l*a:i;if(Number.isNaN(t.mean[l]))r.length&&n.push(r),r=[];else if(2===e&&t.max[l]-t.min[l]>0){const e=a/4,o=t.minFirst[l]?t.min[l]:t.max[l],n=t.minFirst[l]?t.max[l]:t.min[l];r.push([Math.max(0,c-e),s(o)],[Math.min(i,c+e),s(n)])}else r.push([c,s(t.mean[l])])}return r.length&&n.push(r),n}const Ct=t=>Math.round(10*t)/10;function Ht(t,e){if(!t.length)return"";if(1===t.length)return`M${Ct(t[0][0])},${Ct(t[0][1])}h0.01`;let i=`M${Ct(t[0][0])},${Ct(t[0][1])}`;if(!e||t.length<3){for(let e=1;e<t.length;e++)i+=`L${Ct(t[e][0])},${Ct(t[e][1])}`;return i}for(let e=1;e<t.length-1;e++){const[s,o]=t[e],n=(s+t[e+1][0])/2,r=(o+t[e+1][1])/2;i+=`Q${Ct(s)},${Ct(o)} ${Ct(n)},${Ct(r)}`}const s=t[t.length-1];return i+=`L${Ct(s[0])},${Ct(s[1])}`,i}function Ft(t,e,i){const s=t.mean.length;if(!s)return NaN;const o=Math.min(s-1,Math.max(0,Math.round(e/i*(s-1))));return t.mean[o]}function Vt(t){let e=1/0,i=-1/0;for(const s of t)for(let t=0;t<s.min.length;t++)s.min[t]<e&&(e=s.min[t]),s.max[t]>i&&(i=s.max[t]);return[e,i]}const Dt={"card.no_entities":"No entities configured","card.not_found":"Entity not available","card.all_hidden":"All entities hidden","card.loading":"Loading history…","card.no_data":"No data in this time range","card.min":"Minimum","card.max":"Maximum","card.avg":"Average","card.toggle_series":"Show/hide line","editor.section.advanced":"Advanced","editor.preset":"Apply preset…","editor.jump":"Hard jump","editor.jump_help":"Color below / above this value","editor.below":"below","editor.above":"above","editor.drag":"Drag to reorder","editor.hidden_now":"currently hidden","editor.warn_no_statistics":"This sensor has no long-term statistics (no state_class). For time ranges above the statistics threshold, the raw history is loaded instead, which puts more load on the system.","editor.warn_min_max":"Minimum must be lower than maximum.","editor.warn_hide_range":"With these values the entity is always hidden.","editor.warn_hours":"Hours to show must be greater than 0.","preset.temperature":"Room temperature","preset.outdoor":"Outdoor temperature (jump at 0)","preset.heating":"Heating (jump at 95)","preset.humidity":"Humidity","preset.co2":"CO₂","preset.battery":"Battery","field.y_axis":"Y-axis labels","field.show_thresholds":"Lines at color jumps","field.show_extrema":"Show min / avg / max","field.legend_toggle":"Tap legend to hide lines","field.remember_compact":"Remember compact mode on this device","editor.section.general":"General","editor.section.graph":"Graph","editor.section.data":"Data loading","editor.section.entities":"Entities","editor.section.interactions":"Interactions","editor.add_entity":"Add entity","editor.remove":"Remove","editor.move_up":"Move up","editor.move_down":"Move down","editor.color_scale":"Color scale","editor.color_scale_help":"Colors blend smoothly between the stops. Use the jump button on a stop to switch abruptly at that value (separate colors below / above).","editor.color_scale_help_step":"Each color applies from its value upwards; the first color also applies below.","editor.add_stop":"Add color stop","editor.visibility":"Visibility","field.name":"Name","field.icon":"Icon","field.graph":"Graph type","field.detail":"Detail","field.hours_to_show":"Hours to show","field.height":"Graph height (px, empty = automatic)","field.smoothing":"Smooth line","field.value_display":"Values in header","field.legend_icon":"Marker next to values","field.end_labels":"Labels at the end of the line","field.tooltip":"Tooltip on hover","field.compact":"Start in compact mode","field.statistics_threshold":"Use long-term statistics above (hours)","field.statistics_period":"Statistics resolution","field.limits_min":"Minimum (all scales)","field.limits_max":"Maximum (all scales)","field.theme":"Theme","field.tap_action":"Tap action","field.hold_action":"Hold action","field.double_tap_action":"Double tap action","field.entity":"Entity","field.unit":"Unit","field.decimals":"Decimals","field.color":"Line color (without color scale)","field.color_scale_mode":"Color scale mode","field.scale":"Scale group (same name = shared y-axis)","field.min":"Minimum","field.max":"Maximum","field.fill":"Fill area","field.fill_gradient":"Fill coloring (with color scale)","field.line_width":"Line width","field.show_value":"Show value","field.show_graph":"Show in graph","field.hide_below":"Hide while below","field.hide_above":"Hide while above","field.hide_unavailable":"Hide while unavailable","field.value":"Value","opt.line":"Line","opt.none":"None","opt.detail_1":"Low (smooth average)","opt.detail_2":"High (keeps every peak)","opt.primary":"First entity only (like sensor card)","opt.all":"All entities","opt.dot":"Colored dot","opt.icon":"Icon","opt.value":"Current value","opt.icon_value":"Icon and value","opt.auto":"Automatic","opt.5minute":"5 minutes","opt.hour":"Hour","opt.day":"Day","opt.gradient":"Gradient","opt.step":"Steps","opt.fill_value":"By value (horizontal color bands)","opt.hover":"On hover","opt.always":"Always","opt.fill_time":"Along time (vertical color bands)"},Ut={en:Dt,de:{"card.no_entities":"Keine Entitäten konfiguriert","card.not_found":"Entität nicht verfügbar","card.all_hidden":"Alle Entitäten ausgeblendet","card.loading":"Verlauf wird geladen …","card.no_data":"Keine Daten in diesem Zeitraum","card.min":"Minimum","card.max":"Maximum","card.avg":"Durchschnitt","card.toggle_series":"Linie ein-/ausblenden","editor.section.advanced":"Erweitert","editor.preset":"Vorlage anwenden …","editor.jump":"Harter Sprung","editor.jump_help":"Farbe unter / über diesem Wert","editor.below":"unter","editor.above":"über","editor.drag":"Zum Sortieren ziehen","editor.hidden_now":"gerade ausgeblendet","editor.warn_no_statistics":"Dieser Sensor hat keine Langzeitstatistik (keine state_class). Bei Zeiträumen über der Statistik-Schwelle wird stattdessen die Roh-History geladen – das belastet das System stärker.","editor.warn_min_max":"Das Minimum muss kleiner als das Maximum sein.","editor.warn_hide_range":"Mit diesen Werten ist die Entität immer ausgeblendet.","editor.warn_hours":"Die angezeigten Stunden müssen größer als 0 sein.","preset.temperature":"Raumtemperatur","preset.outdoor":"Außentemperatur (Sprung bei 0)","preset.heating":"Heizung (Sprung bei 95)","preset.humidity":"Luftfeuchte","preset.co2":"CO₂","preset.battery":"Akku","field.y_axis":"Y-Achsen-Beschriftung","field.show_thresholds":"Linien an Farbsprüngen","field.show_extrema":"Min / Ø / Max anzeigen","field.legend_toggle":"Legende antippen blendet Linien aus","field.remember_compact":"Kompaktmodus auf diesem Gerät merken","editor.section.general":"Allgemein","editor.section.graph":"Diagramm","editor.section.data":"Datenabfrage","editor.section.entities":"Entitäten","editor.section.interactions":"Interaktionen","editor.add_entity":"Entität hinzufügen","editor.remove":"Entfernen","editor.move_up":"Nach oben","editor.move_down":"Nach unten","editor.color_scale":"Farbskala","editor.color_scale_help":"Zwischen den Stufen gehen die Farben fließend ineinander über. Mit dem Sprung-Knopf an einer Stufe wechselt die Farbe bei diesem Wert hart (getrennte Farben darunter / darüber).","editor.color_scale_help_step":"Jede Farbe gilt ab ihrem Wert aufwärts; die erste Farbe gilt auch darunter.","editor.add_stop":"Farbstufe hinzufügen","editor.visibility":"Sichtbarkeit","field.name":"Name","field.icon":"Symbol","field.graph":"Diagrammtyp","field.detail":"Detailgrad","field.hours_to_show":"Angezeigte Stunden","field.height":"Diagrammhöhe (px, leer = automatisch)","field.smoothing":"Linie glätten","field.value_display":"Werte in der Kopfzeile","field.legend_icon":"Markierung neben den Werten","field.end_labels":"Beschriftung am Linienende","field.tooltip":"Tooltip beim Überfahren","field.compact":"Im Kompaktmodus starten","field.statistics_threshold":"Langzeitstatistik verwenden ab (Stunden)","field.statistics_period":"Auflösung der Statistik","field.limits_min":"Minimum (alle Skalen)","field.limits_max":"Maximum (alle Skalen)","field.theme":"Design","field.tap_action":"Aktion beim Tippen","field.hold_action":"Aktion beim Halten","field.double_tap_action":"Aktion bei Doppeltippen","field.entity":"Entität","field.unit":"Einheit","field.decimals":"Nachkommastellen","field.color":"Linienfarbe (ohne Farbskala)","field.color_scale_mode":"Art der Farbskala","field.scale":"Skalengruppe (gleicher Name = gemeinsame Y-Achse)","field.min":"Minimum","field.max":"Maximum","field.fill":"Fläche füllen","field.fill_gradient":"Färbung der Füllung (mit Farbskala)","field.line_width":"Linienstärke","field.show_value":"Wert anzeigen","field.show_graph":"Im Diagramm anzeigen","field.hide_below":"Ausblenden, solange unter","field.hide_above":"Ausblenden, solange über","field.hide_unavailable":"Ausblenden, solange nicht verfügbar","field.value":"Wert","opt.line":"Linie","opt.none":"Keine","opt.detail_1":"Niedrig (geglätteter Mittelwert)","opt.detail_2":"Hoch (alle Spitzen bleiben erhalten)","opt.primary":"Nur erste Entität (wie Sensorkarte)","opt.all":"Alle Entitäten","opt.dot":"Farbiger Punkt","opt.icon":"Symbol","opt.value":"Aktueller Wert","opt.icon_value":"Symbol und Wert","opt.auto":"Automatisch","opt.5minute":"5 Minuten","opt.hour":"Stunde","opt.day":"Tag","opt.gradient":"Verlauf","opt.step":"Stufen","opt.fill_value":"Nach Wert (horizontale Farbbänder)","opt.hover":"Beim Überfahren","opt.always":"Immer","opt.fill_time":"Entlang der Zeit (vertikale Farbbänder)"}};function Pt(t,e){const i=(t?.locale?.language??t?.language??"en").split("-")[0];return Ut[i]?.[e]??Dt[e]??e}const zt=new Map;function Ot(t,e,i){if(!Number.isFinite(e))return"–";const s=function(t){const e=t?.locale?.language??t?.language??"en";switch(t?.locale?.number_format){case"comma_decimal":return"en-US";case"decimal_comma":return"de-DE";case"space_comma":return"fr-FR";case"system":return;default:return e}}(t),o="none"===t?.locale?.number_format,n=`${s}|${i}|${o}`;let r=zt.get(n);return r||(r=new Intl.NumberFormat(s,{useGrouping:!o,...void 0!==i?{minimumFractionDigits:i,maximumFractionDigits:i}:{maximumFractionDigits:2}}),zt.set(n,r)),r.format(e)}const Lt=[{id:"temperature",stops:[{value:0,color:"#2196f3"},{value:18,color:"#4caf50"},{value:24,color:"#ff9800"},{value:30,color:"#f44336"}]},{id:"outdoor",stops:[{value:0,color:"#2196f3"},{value:0,color:"#4caf50"},{value:25,color:"#ff9800"},{value:35,color:"#f44336"}]},{id:"heating",stops:[{value:20,color:"#2196f3"},{value:95,color:"#ff9800"},{value:95,color:"#8b0000"}]},{id:"humidity",mode:"step",stops:[{value:0,color:"#ff9800"},{value:40,color:"#4caf50"},{value:60,color:"#2196f3"},{value:70,color:"#3f51b5"}]},{id:"co2",stops:[{value:400,color:"#4caf50"},{value:800,color:"#4caf50"},{value:1200,color:"#ffc107"},{value:1600,color:"#ff9800"},{value:2e3,color:"#f44336"}]},{id:"battery",stops:[{value:15,color:"#f44336"},{value:15,color:"#ff9800"},{value:40,color:"#ffc107"},{value:60,color:"#4caf50"}]}];function It(t,e="gradient"){if(!t?.length)return[];const i=[];if("step"===e)for(let e=1;e<t.length;e++)t[e].color!==t[e-1].color&&i.push(Number(t[e].value));else for(let e=0;e+1<t.length;e++)Number(t[e].value)===Number(t[e+1].value)&&t[e].color!==t[e+1].color&&i.push(Number(t[e].value));return[...new Set(i)]}const jt=["#44739e","#984ea3","#00d2d5","#ff7f00","#af8d00","#7f80cd","#b3e900","#c42e60","#a65628","#f781bf","#8dd3c7","#bebada"];function Rt(t){return t<=0?"var(--accent-color)":`var(--graph-color-${t+1}, ${jt[(t-1)%jt.length]})`}const Wt={number:{mode:"box",step:"any"}},Gt=t=>null!=t&&""!==t;function Bt(t,e,i="opt."){return{select:{mode:"dropdown",options:e.map(e=>({value:String(e),label:Pt(t,`${i}${e}`)}))}}}function Kt(t){const e={};for(const[i,s]of Object.entries(t))null!=s&&""!==s&&(e[i]=s);return e}class Yt extends lt{constructor(){super(...arguments),this._expanded=-1,this._resolve=t=>mt(t,this),this._l=t=>Pt(this.hass,t),this._computeLabel=t=>this._l(`field.${t.name}`)}setConfig(t){const e=(t.entities??[]).map(t=>"string"==typeof t?{entity:t}:t);this._config={...t,entities:e}}connectedCallback(){super.connectedCallback();const t=t=>customElements.get(t)?.getConfigElement?.();customElements.get("ha-form")||t("hui-button-card"),customElements.get("ha-entity-picker")||t("hui-entities-card")}_emit(t){this._config=t,this.dispatchEvent(new CustomEvent("config-changed",{detail:{config:t},bubbles:!0,composed:!0}))}get _hours(){return Number(this._config?.hours_to_show??24)}get _usesStatistics(){return this._hours>Number(this._config?.statistics_threshold??6)}_defaults(){return{graph:"line",detail:1,hours_to_show:24,smoothing:!0,tooltip:!0,compact:!1,remember_compact:!0,statistics_threshold:6,statistics_period:"auto",end_labels:"none",legend_icon:"dot",fill_gradient:"value",y_axis:"hover",show_thresholds:!1,show_extrema:!1,legend_toggle:!0,value_display:1===this._config.entities.length?"primary":"all"}}_cardSchema(){const t=this.hass,e=this._config,i=this._cardData(),s="none"!==i.graph,o=e.entities.some(t=>t.color_scale?.length),n=e.entities.length>1,r="toggle-compact"===e.tap_action?.action,a=t=>({type:"grid",name:"",schema:t});return[{type:"expandable",flatten:!0,expanded:!0,title:this._l("editor.section.general"),schema:[a([{name:"name",selector:{text:{}}},{name:"icon",selector:{icon:{}}}]),a([{name:"value_display",selector:Bt(t,["all","primary","none"])},..."all"===i.value_display||n?[{name:"legend_icon",selector:Bt(t,["dot","icon","none"])}]:[]]),...s?[{name:"show_extrema",selector:{boolean:{}}}]:[],{name:"compact",selector:{boolean:{}}}]},{type:"expandable",flatten:!0,expanded:!0,title:this._l("editor.section.graph"),schema:[a([{name:"graph",selector:Bt(t,["line","none"])},...s?[{name:"hours_to_show",selector:{number:{mode:"box",min:.1,step:"any"}}}]:[]]),...s?[a([{name:"detail",selector:Bt(t,["1","2"],"opt.detail_")},{name:"y_axis",selector:Bt(t,["hover","always","none"])}]),{name:"end_labels",selector:Bt(t,["none","value","icon","icon_value"])},...o?[{name:"fill_gradient",selector:Bt(t,["value","time"],"opt.fill_")},{name:"show_thresholds",selector:{boolean:{}}}]:[],a([{name:"tooltip",selector:{boolean:{}}},...n?[{name:"legend_toggle",selector:{boolean:{}}}]:[]])]:[]]},{type:"expandable",flatten:!0,title:this._l("editor.section.interactions"),schema:[{name:"compact_on_tap",selector:{boolean:{}}},...r||e.compact?[{name:"remember_compact",selector:{boolean:{}}}]:[],...r?[]:[{name:"tap_action",selector:{ui_action:{}}}],{name:"hold_action",selector:{ui_action:{}}},{name:"double_tap_action",selector:{ui_action:{}}}]},{type:"expandable",flatten:!0,title:this._l("editor.section.advanced"),schema:[...s?[a([{name:"height",selector:{number:{mode:"box",min:20,step:1}}},{name:"smoothing",selector:{boolean:{}}},{name:"limits_min",selector:Wt},{name:"limits_max",selector:Wt},{name:"statistics_threshold",selector:{number:{mode:"box",min:0,step:"any"}}},...this._usesStatistics?[{name:"statistics_period",selector:Bt(t,["auto","5minute","hour","day"])}]:[]])]:[],{name:"theme",selector:{theme:{}}}]}]}_cardData(){const t=this._config;return{...this._defaults(),...t,detail:String(t.detail??1),limits_min:t.limits?.min,limits_max:t.limits?.max,compact_on_tap:"toggle-compact"===t.tap_action?.action}}_cardChanged(t){t.stopPropagation();const{limits_min:e,limits_max:i,compact_on_tap:s,entities:o,...n}=t.detail.value,r={...n,entities:this._config.entities},a=Kt({min:e,max:i});Object.keys(a).length?r.limits=a:delete r.limits,s?r.tap_action={action:"toggle-compact"}:"toggle-compact"===r.tap_action?.action&&delete r.tap_action,void 0!==r.detail&&(r.detail=Number(r.detail));for(const[t,e]of Object.entries(this._defaults()))r[t]!==e||t in this._config||delete r[t];this._emit(Kt(r))}_cardWarnings(){const t=this._config,e=[];return!Gt(t.hours_to_show)||Number(t.hours_to_show)>0||e.push(this._l("editor.warn_hours")),Gt(t.limits?.min)&&Gt(t.limits?.max)&&Number(t.limits.min)>=Number(t.limits.max)&&e.push(this._l("editor.warn_min_max")),e}_entitySchema(t){const e=this.hass,i=t=>({type:"grid",name:"",schema:t}),s=!!t.color_scale?.length,o="none"!==this._config.graph&&!1!==t.show_graph;return[{name:"entity",selector:{entity:{}}},i([{name:"name",selector:{text:{}}},{name:"icon",selector:{icon:{}}},...s?[]:[{name:"color",selector:{text:{}}}]]),{type:"expandable",flatten:!0,title:this._l("editor.visibility"),expanded:Gt(t.hide_below)||Gt(t.hide_above)||!!t.hide_unavailable,schema:[i([{name:"hide_below",selector:Wt},{name:"hide_above",selector:Wt}]),{name:"hide_unavailable",selector:{boolean:{}}}]},{type:"expandable",flatten:!0,title:this._l("editor.section.advanced"),schema:[i([{name:"unit",selector:{text:{}}},{name:"decimals",selector:{number:{mode:"box",min:0,max:6,step:1}}},...o?[{name:"line_width",selector:{number:{mode:"box",min:.5,max:12,step:.5}}},{name:"scale",selector:{text:{}}},{name:"min",selector:Wt},{name:"max",selector:Wt}]:[]]),i([{name:"show_value",selector:{boolean:{}}},{name:"show_graph",selector:{boolean:{}}},...o?[{name:"fill",selector:{boolean:{}}}]:[]]),...o&&s&&!1!==t.fill?[{name:"fill_gradient",selector:Bt(e,["value","time"],"opt.fill_")}]:[]]}]}_entityWarnings(t){const e=[];Gt(t.min)&&Gt(t.max)&&Number(t.min)>=Number(t.max)&&e.push(this._l("editor.warn_min_max")),Gt(t.hide_below)&&Gt(t.hide_above)&&Number(t.hide_below)>=Number(t.hide_above)&&e.push(this._l("editor.warn_hide_range"));const i=this.hass?.states[t.entity];return i&&this._usesStatistics&&"none"!==this._config.graph&&!1!==t.show_graph&&t.entity.startsWith("sensor.")&&!i.attributes.state_class&&e.push(this._l("editor.warn_no_statistics")),e}_updateEntity(t,e){const i=[...this._config.entities];null===e?i.splice(t,1):i[t]=Kt(e),this._expanded>=i.length&&(this._expanded=-1),this._emit({...this._config,entities:i})}_move(t,e){const i=[...this._config.entities];if(e<0||e>=i.length||t===e)return;const s=this._expanded>=0?i[this._expanded]:void 0,[o]=i.splice(t,1);i.splice(e,0,o),this._expanded=s?i.indexOf(s):-1,this._emit({...this._config,entities:i})}_addEntity(t){t.stopPropagation();const e=t.detail.value?.entity;if(!e)return;const i=[...this._config.entities,{entity:e}];this._expanded=i.length-1,this._emit({...this._config,entities:i}),t.target.data={}}_dragStart(t,e){if(0!==t.button)return;t.preventDefault(),t.currentTarget.setPointerCapture?.(t.pointerId);const i=[...this.renderRoot.querySelectorAll(".entity-row")];this._drag={from:e,to:e,startY:t.clientY,dy:0,rects:i.map(t=>t.getBoundingClientRect())}}_dragMove(t){const e=this._drag;if(!e)return;const i=t.clientY-e.startY,s=e.rects[e.from],o=s.top+s.height/2+i,n=e.rects.filter((t,i)=>i!==e.from&&t.top+t.height/2<o).length;this._drag={...e,dy:i,to:n}}_dragEnd(){const t=this._drag;this._drag=void 0,t&&t.from!==t.to&&this._move(t.from,t.to)}_dragKey(t,e){let i;if("ArrowUp"===t.key)i=e-1;else{if("ArrowDown"!==t.key)return;i=e+1}t.preventDefault(),this._move(e,i),this.updateComplete.then(()=>{const t=this.renderRoot.querySelectorAll(".handle");t[Math.max(0,Math.min(t.length-1,i))]?.focus()})}_rowStyle(t){const e=this._drag;if(!e)return"";if(t===e.from)return`transform:translateY(${e.dy}px);z-index:2;position:relative;transition:none`;const i=e.rects[e.from].height+8;return e.from<e.to&&t>e.from&&t<=e.to?`transform:translateY(${-i}px)`:e.to<e.from&&t>=e.to&&t<e.from?`transform:translateY(${i}px)`:""}_setScale(t,e,i){const s={...this._config.entities[t]};e.length?s.color_scale=e:delete s.color_scale,null===i||"gradient"===i?delete s.color_scale_mode:i&&(s.color_scale_mode=i),this._updateEntity(t,s)}_applyPreset(t,e){const i=Lt.find(t=>t.id===e);i&&this._setScale(t,i.stops.map(t=>({...t})),i.mode??null)}_renderPreview(t,e,i=!1){const s=gt(t);if(!s.length)return B;const o=s[0].value,n=s[s.length-1].value,r=.12*(n-o)||5,a=o-r,l=n+r,c=`linear-gradient(to right, ${bt(s,e,a,l,this._resolve).map(t=>`${t.color} ${(100*t.offset).toFixed(2)}%`).join(", ")})`;if(i)return R`<span class="mini-scale" style="background:${c}"></span>`;const h=[...new Set(s.map(t=>t.value))];return R`<div class="preview">
+      <div class="preview-bar" style="background:${c}"></div>
+      <div class="preview-ticks">
+        ${h.map(t=>R`<span style="left:${((t-a)/(l-a)*100).toFixed(2)}%">${Ot(this.hass,t)}</span>`)}
+      </div>
+    </div>`}_renderColorInput(t,e,i){return R`<span class="color-input" title=${i}>
+      <input
+        type="color"
+        aria-label=${i}
+        .value=${Xt(t,this)}
+        @change=${t=>e(t.target.value)}
+      />
+      <input
+        class="text"
+        type="text"
+        aria-label=${i}
+        .value=${t}
+        @change=${t=>e(t.target.value.trim())}
+      />
+    </span>`}_renderStops(t,e){const i=e.color_scale??[],s=e.color_scale_mode??"gradient",o=function(t){const e=[];for(let i=0;i<t.length;i++){const s=t[i],o=t[i+1];o&&Number(o.value)===Number(s.value)?(e.push({value:Number(s.value),below:s.color,color:o.color}),i++):e.push({value:Number(s.value),color:s.color})}return e}(i),n=e=>this._setScale(t,function(t){return t.flatMap(t=>void 0!==t.below?[{value:t.value,color:t.below},{value:t.value,color:t.color}]:[{value:t.value,color:t.color}])}(e)),r=(t,e)=>n(o.map((i,s)=>s===t?{...i,...e}:i)),a=t=>{const e=o[t];if(void 0!==e.below){const{below:i,...s}=e;n(o.map((e,i)=>i===t?s:e))}else{const s=1e-9*Math.max(1,Math.abs(e.value)),o=_t(vt(gt(i),"gradient",e.value-s,this._resolve));r(t,{below:Xt(o,this)})}};return R`<div class="stops">
+      <div class="stops-head">
+        <span class="stops-title">${this._l("editor.color_scale")}</span>
+        ${i.length?R`<select
+              class="native"
+              aria-label=${this._l("field.color_scale_mode")}
+              @change=${e=>this._setScale(t,i,e.target.value)}
+            >
+              <option value="gradient" ?selected=${"gradient"===s}>${this._l("opt.gradient")}</option>
+              <option value="step" ?selected=${"step"===s}>${this._l("opt.step")}</option>
+            </select>`:B}
+        <select
+          class="native"
+          aria-label=${this._l("editor.preset")}
+          @change=${e=>{const i=e.target;this._applyPreset(t,i.value),i.value=""}}
+        >
+          <option value="" selected>${this._l("editor.preset")}</option>
+          ${Lt.map(t=>R`<option value=${t.id}>${this._l(`preset.${t.id}`)}</option>`)}
+        </select>
+      </div>
+      ${this._renderPreview(i,s)}
+      ${o.map((t,e)=>R`<div class="stop">
           <input
-            type="color"
-            .value=${function(t){if(/^#[0-9a-f]{6}$/i.test(t))return t;if(/^#[0-9a-f]{3}$/i.test(t))return"#"+[...t.slice(1)].map(t=>t+t).join("");try{const e=document.createElement("canvas").getContext("2d");e.fillStyle="#000",e.fillStyle=t;const i=String(e.fillStyle);if(i.startsWith("#"))return i}catch{}return"#000000"}(e.color)}
-            @change=${t=>s(n,{color:t.target.value})}
+            class="num"
+            type="number"
+            step="any"
+            aria-label=${this._l("field.value")}
+            .value=${String(t.value)}
+            @change=${t=>{const i=parseFloat(t.target.value);Number.isFinite(i)&&r(e,{value:i})}}
           />
-          <ha-form
-            .hass=${this.hass}
-            .data=${{value:e.value,color:e.color}}
-            .schema=${[{type:"grid",name:"",schema:[{name:"value",selector:zt},{name:"color",selector:{text:{}}}]}]}
-            .computeLabel=${this._computeLabel}
-            @value-changed=${t=>{t.stopPropagation(),s(n,{value:Number(t.detail.value.value??0),color:t.detail.value.color??""})}}
-          ></ha-form>
+          <div class="stop-colors">
+            ${void 0!==t.below?R`${this._renderColorInput(t.below,t=>r(e,{below:t}),this._l("editor.below"))}
+                  <span class="arrow">→</span>`:B}
+            ${this._renderColorInput(t.color,t=>r(e,{color:t}),this._l("editor.above"))}
+          </div>
+          ${"gradient"===s?R`<ha-icon-button
+                class="jump ${void 0!==t.below?"on":""}"
+                .label=${`${this._l("editor.jump")} – ${this._l("editor.jump_help")}`}
+                title=${`${this._l("editor.jump")} – ${this._l("editor.jump_help")}`}
+                .path=${"M3,17H9V7H15V17H21V19H13V9H11V19H3V17Z"}
+                @click=${()=>a(e)}
+              ></ha-icon-button>`:B}
           <ha-icon-button
             .label=${this._l("editor.remove")}
-            .path=${Ot}
-            @click=${()=>this._setStops(t,i.filter((t,e)=>e!==n))}
+            .path=${"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"}
+            @click=${()=>n(o.filter((t,i)=>i!==e))}
           ></ha-icon-button>
         </div>`)}
-      <div class="stop-actions">
-        <button
-          class="text-button"
-          @click=${()=>{const e=i[i.length-1];this._setStops(t,[...i,{value:e?Number(e.value)+10:0,color:e?.color??"#ff0000"}])}}
-        >
-          + ${this._l("editor.add_stop")}
-        </button>
-        ${i.length>1?j`<button class="text-button" @click=${()=>this._setStops(t,gt(i))}>↕ sort</button>`:G}
+      <button
+        class="text-button"
+        @click=${()=>{const t=o[o.length-1];n([...o,{value:t?t.value+10:0,color:t?.color??"#ff0000"}])}}
+      >
+        + ${this._l("editor.add_stop")}
+      </button>
+      ${i.length?R`<div class="help">${this._l("step"===s?"editor.color_scale_help_step":"editor.color_scale_help")}</div>`:B}
+    </div>`}_isHiddenNow(t){const e=this.hass?.states[t.entity],i=e?Number(e.state):NaN,s=!!e&&""!==e.state&&Number.isFinite(i);return!(!t.hide_unavailable||s)||(!!(s&&Gt(t.hide_below)&&i<Number(t.hide_below))||!!(s&&Gt(t.hide_above)&&i>Number(t.hide_above)))}_renderEntity(t,e){const i=this.hass?.states[t.entity],s=t.name||i?.attributes.friendly_name||t.entity,o=t.unit??i?.attributes.unit_of_measurement??"",n=!!i&&""!==i.state&&Number.isFinite(Number(i.state)),r=i?n?Ot(this.hass,Number(i.state)):i.state:"",a=this._entityWarnings(t),l=this._isHiddenNow(t);return R`<div class="entity-row ${this._drag?.from===e?"dragging":""}" style=${this._rowStyle(e)}>
+      <div
+        class="handle"
+        tabindex="0"
+        role="button"
+        aria-label=${this._l("editor.drag")}
+        title=${this._l("editor.drag")}
+        @pointerdown=${t=>this._dragStart(t,e)}
+        @pointermove=${t=>this._dragMove(t)}
+        @pointerup=${()=>this._dragEnd()}
+        @pointercancel=${()=>this._dragEnd()}
+        @keydown=${t=>this._dragKey(t,e)}
+      >
+        <svg viewBox="0 0 24 24"><path d=${"M7,19V17H9V19H7M11,19V17H13V19H11M15,19V17H17V19H15M7,15V13H9V15H7M11,15V13H13V15H11M15,15V13H17V15H15M7,11V9H9V11H7M11,11V9H13V11H11M15,11V9H17V11H15M7,7V5H9V7H7M11,7V5H13V7H11M15,7V5H17V7H15Z"}></path></svg>
       </div>
-    </div>`}_renderEntity(t,e){const i=this._config.entities.length,s=t.name||this.hass?.states[t.entity]?.attributes.friendly_name||t.entity;return j`<ha-expansion-panel
-      outlined
-      .expanded=${this._expanded===e}
-      @expanded-changed=${t=>{t.detail.expanded?this._expanded=e:this._expanded===e&&(this._expanded=-1)}}
-    >
-      <div slot="header" class="panel-header">
-        <span class="swatch" style="background:${t.color_scale?.[0]?.color??t.color??"var(--accent-color)"}"></span>
-        <span class="panel-title">${s}</span>
-      </div>
-      <div class="panel-body">
-        <div class="row-actions">
-          <ha-icon-button .label=${this._l("editor.move_up")} .path=${"M13,20H11V8L5.5,13.5L4.08,12.08L12,4.16L19.92,12.08L18.5,13.5L13,8V20Z"} .disabled=${0===e} @click=${()=>this._move(e,-1)}></ha-icon-button>
-          <ha-icon-button .label=${this._l("editor.move_down")} .path=${"M11,4H13V16L18.5,10.5L19.92,11.92L12,19.84L4.08,11.92L5.5,10.5L11,16V4Z"} .disabled=${e===i-1} @click=${()=>this._move(e,1)}></ha-icon-button>
-          <ha-icon-button .label=${this._l("editor.remove")} .path=${Ot} @click=${()=>this._updateEntity(e,null)}></ha-icon-button>
+      <ha-expansion-panel
+        outlined
+        .expanded=${this._expanded===e}
+        @expanded-changed=${t=>{t.detail.expanded?this._expanded=e:this._expanded===e&&(this._expanded=-1)}}
+      >
+        <div slot="header" class="panel-header">
+          <ha-state-icon .hass=${this.hass} .stateObj=${i} .icon=${t.icon}></ha-state-icon>
+          <span class="panel-title">${s}</span>
+          ${l?R`<span class="badge">${this._l("editor.hidden_now")}</span>`:B}
+          ${a.length?R`<span class="badge warn-badge">⚠</span>`:B}
+          <span class="panel-value">${r} ${o}</span>
+          ${t.color_scale?.length?this._renderPreview(t.color_scale,t.color_scale_mode??"gradient",!0):R`<span class="swatch" style="background:${t.color??Rt(e)}"></span>`}
         </div>
-        <ha-form
-          .hass=${this.hass}
-          .data=${{show_value:!0,show_graph:!0,color_scale_mode:"gradient",...t}}
-          .schema=${this._entitySchema(t)}
-          .computeLabel=${this._computeLabel}
-          @value-changed=${i=>{i.stopPropagation();const s={...i.detail.value};"gradient"!==s.color_scale_mode||t.color_scale_mode||delete s.color_scale_mode,!0===s.show_value&&void 0===t.show_value&&delete s.show_value,!0===s.show_graph&&void 0===t.show_graph&&delete s.show_graph,s.color_scale&&(s.color_scale=t.color_scale),this._updateEntity(e,s)}}
-        ></ha-form>
-        ${this._renderStops(e,t)}
-      </div>
-    </ha-expansion-panel>`}render(){return this.hass&&this._config?j`
+        <div class="panel-body">
+          ${a.map(t=>R`<div class="warning">⚠ ${t}</div>`)}
+          <ha-form
+            .hass=${this.hass}
+            .data=${{show_value:!0,show_graph:!0,...t}}
+            .schema=${this._entitySchema(t)}
+            .computeLabel=${this._computeLabel}
+            @value-changed=${i=>{i.stopPropagation();const s={...i.detail.value};!0===s.show_value&&void 0===t.show_value&&delete s.show_value,!0===s.show_graph&&void 0===t.show_graph&&delete s.show_graph,s.color_scale=t.color_scale,s.color_scale_mode=t.color_scale_mode,this._updateEntity(e,s)}}
+          ></ha-form>
+          ${this._renderStops(e,t)}
+          <div class="panel-actions">
+            <button class="text-button danger" @click=${()=>this._updateEntity(e,null)}>${this._l("editor.remove")}</button>
+          </div>
+        </div>
+      </ha-expansion-panel>
+    </div>`}render(){if(!this.hass||!this._config)return B;const t=this._cardWarnings();return R`
+      ${t.map(t=>R`<div class="warning">⚠ ${t}</div>`)}
       <ha-form
         .hass=${this.hass}
         .data=${this._cardData()}
@@ -62,16 +125,20 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
         @value-changed=${this._cardChanged}
       ></ha-form>
       <div class="section-title">${this._l("editor.section.entities")}</div>
-      <div class="entities">${this._config.entities.map((t,e)=>this._renderEntity(t,e))}</div>
-      <ha-form
-        class="add"
-        .hass=${this.hass}
-        .data=${{}}
-        .schema=${[{name:"entity",selector:{entity:{}}}]}
-        .computeLabel=${()=>this._l("editor.add_entity")}
-        @value-changed=${this._addEntity}
-      ></ha-form>
-    `:G}}Vt.properties={hass:{attribute:!1},_config:{state:!0},_expanded:{state:!0}},Vt.styles=o`
+      <div class="entities ${this._drag?"is-dragging":""}">
+        ${this._config.entities.map((t,e)=>this._renderEntity(t,e))}
+      </div>
+      <div class="add">
+        <svg viewBox="0 0 24 24"><path d=${"M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"}></path></svg>
+        <ha-form
+          .hass=${this.hass}
+          .data=${{}}
+          .schema=${[{name:"entity",selector:{entity:{}}}]}
+          .computeLabel=${()=>this._l("editor.add_entity")}
+          @value-changed=${this._addEntity}
+        ></ha-form>
+      </div>
+    `}}function Xt(t,e){if(/^#[0-9a-f]{6}$/i.test(t))return t;const[i,s,o]=mt(t,e),n=t=>Math.round(t).toString(16).padStart(2,"0");return`#${n(i)}${n(s)}${n(o)}`}Yt.properties={hass:{attribute:!1},_config:{state:!0},_expanded:{state:!0},_drag:{state:!0}},Yt.styles=n`
     :host {
       display: block;
     }
@@ -85,20 +152,98 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       flex-direction: column;
       gap: 8px;
     }
+    .entity-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+      transition: transform 0.15s ease;
+    }
+    .entities.is-dragging .entity-row {
+      user-select: none;
+    }
+    .entity-row.dragging ha-expansion-panel {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      background: var(--card-background-color);
+      border-radius: 12px;
+    }
+    .entity-row ha-expansion-panel {
+      flex: 1;
+      min-width: 0;
+    }
+    .handle {
+      flex: none;
+      width: 32px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      touch-action: none;
+      color: var(--secondary-text-color);
+      border-radius: 8px;
+    }
+    .handle:active {
+      cursor: grabbing;
+    }
+    .handle:focus-visible {
+      outline: 2px solid var(--primary-color);
+    }
+    .handle svg,
+    .add svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
     .add {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 4px;
       margin-top: 12px;
+      color: var(--secondary-text-color);
+    }
+    .add svg {
+      width: 32px;
+      flex: none;
+    }
+    .add ha-form {
+      flex: 1;
     }
     .panel-header {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       min-width: 0;
+      width: 100%;
+      --mdc-icon-size: 20px;
+    }
+    .panel-header ha-state-icon {
+      color: var(--state-icon-color, var(--secondary-text-color));
+      flex: none;
     }
     .panel-title {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      min-width: 0;
+    }
+    .panel-value {
+      margin-left: auto;
+      color: var(--secondary-text-color);
+      white-space: nowrap;
+      font-size: 14px;
+    }
+    .badge {
+      flex: none;
+      font-size: 11px;
+      line-height: 16px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      background: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+      color: var(--secondary-text-color);
+      white-space: nowrap;
+    }
+    .warn-badge {
+      color: var(--warning-color, #ff9800);
     }
     .swatch {
       width: 14px;
@@ -106,47 +251,139 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       border-radius: 50%;
       flex: none;
     }
+    .mini-scale {
+      width: 40px;
+      height: 8px;
+      border-radius: 4px;
+      flex: none;
+    }
     .panel-body {
       padding: 0 4px 12px;
     }
-    .row-actions {
+    .panel-actions {
       display: flex;
       justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .warning {
+      margin: 8px 0;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 18px;
+      color: var(--primary-text-color);
+      background: color-mix(in srgb, var(--warning-color, #ff9800) 15%, transparent);
+      border-left: 3px solid var(--warning-color, #ff9800);
     }
     .stops {
       margin-top: 16px;
       padding-top: 12px;
       border-top: 1px solid var(--divider-color);
     }
+    .stops-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
     .stops-title {
       font-weight: 500;
+      margin-right: auto;
+    }
+    .preview {
+      margin: 4px 0 12px;
+    }
+    .preview-bar {
+      height: 14px;
+      border-radius: 7px;
+    }
+    .preview-ticks {
+      position: relative;
+      height: 16px;
+      font-size: 11px;
+      color: var(--secondary-text-color);
+    }
+    .preview-ticks span {
+      position: absolute;
+      top: 2px;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+    .preview-ticks span::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: -6px;
+      height: 5px;
+      border-left: 1px solid var(--secondary-text-color);
     }
     .help {
       color: var(--secondary-text-color);
       font-size: 12px;
-      margin: 4px 0 8px;
+      margin-top: 4px;
     }
     .stop {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
+      gap: 6px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
     }
-    .stop ha-form {
+    .stop-colors {
+      display: flex;
+      align-items: center;
+      gap: 4px;
       flex: 1;
+      min-width: 160px;
     }
-    .stop input[type="color"] {
-      width: 36px;
+    .arrow {
+      color: var(--secondary-text-color);
+    }
+    input.num,
+    input.text,
+    select.native {
       height: 36px;
+      box-sizing: border-box;
+      border: 1px solid var(--divider-color, #ccc);
+      border-radius: 6px;
+      padding: 0 8px;
+      background: var(--card-background-color, transparent);
+      color: var(--primary-text-color);
+      font: inherit;
+      font-size: 14px;
+    }
+    input.num {
+      width: 84px;
+    }
+    .color-input {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+    }
+    .color-input input.text {
+      flex: 1;
+      min-width: 60px;
+      width: 0;
+    }
+    .color-input input[type="color"] {
+      width: 32px;
+      height: 32px;
       border: none;
       padding: 0;
       background: none;
       cursor: pointer;
       flex: none;
     }
-    .stop-actions {
-      display: flex;
-      gap: 8px;
+    ha-icon-button.jump {
+      color: var(--secondary-text-color);
+      opacity: 0.6;
+    }
+    ha-icon-button.jump.on {
+      color: var(--primary-color);
+      opacity: 1;
     }
     .text-button {
       background: none;
@@ -157,74 +394,110 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       cursor: pointer;
       padding: 8px 4px;
     }
-  `,customElements.get("best-number-card-editor")||customElements.define("best-number-card-editor",Vt);const jt=ct,Wt=["#44739e","#984ea3","#00d2d5","#ff7f00","#af8d00","#7f80cd","#b3e900","#c42e60","#a65628","#f781bf","#8dd3c7","#bebada"],Bt=24,Gt="line",Kt=6,Xt=!0,qt="none",Zt="dot";let Jt=0;class Yt extends lt{constructor(){super(...arguments),this._compact=!1,this._width=0,this._hoverX=null,this._tick=0,this._uid="bnc"+ ++Jt,this._cfgVersion=0,this._dsKey="",this._dsStarted=0,this._lastTick=0,this._held=!1,this._resolve=t=>mt(t,this),this._onPointerDown=t=>{this._held=!1,this._down={x:t.clientX,y:t.clientY},this._config?.hold_action&&"none"!==this._config.hold_action.action&&(clearTimeout(this._holdTimer),this._holdTimer=window.setTimeout(()=>{this._held=!0,this._doAction("hold",t)},500))},this._onPointerUp=()=>clearTimeout(this._holdTimer),this._onClick=t=>{if(clearTimeout(this._holdTimer),this._held)return void(this._held=!1);if(this._down&&Math.hypot(t.clientX-this._down.x,t.clientY-this._down.y)>10)return;const e=this._config?.double_tap_action;if(e&&"none"!==e.action)return this._clickTimer?(clearTimeout(this._clickTimer),this._clickTimer=void 0,void this._doAction("double_tap",t)):void(this._clickTimer=window.setTimeout(()=>{this._clickTimer=void 0,this._doAction("tap",t)},250));this._doAction("tap",t)},this._onMove=t=>{if(!1===this._config?.tooltip||!this._model)return;const e=t.currentTarget.getBoundingClientRect(),i=t.clientX-e.left;this._hoverX=i>=0&&i<=this._model.plotW?i:null},this._onLeave=()=>{this._hoverX=null}}static getConfigElement(){return document.createElement("best-number-card-editor")}static getStubConfig(t){return{entities:Object.keys(t.states).filter(e=>e.startsWith("sensor.")&&t.states[e].attributes.unit_of_measurement&&!isNaN(Number(t.states[e].state))).slice(0,2).map(t=>({entity:t}))}}setConfig(t){if(!t)throw new Error("Invalid configuration");const e=(Array.isArray(t.entities)?t.entities:t.entity?[t.entity]:[]).map(t=>"string"==typeof t?{entity:t}:{...t}).filter(t=>t&&"string"==typeof t.entity);if(!e.length)throw new Error("Please define at least one entity");for(const t of e)t.color_scale&&(t.color_scale=gt(t.color_scale));const i=this._config;this._cfgVersion++,this._config={...t,entities:e},i&&i.compact===t.compact||(this._compact=!!t.compact)}getCardSize(){return this._compact?1:3}getGridOptions(){return{columns:6,min_columns:3,min_rows:1}}connectedCallback(){super.connectedCallback(),this._syncDataSource()}disconnectedCallback(){super.disconnectedCallback(),this._disposeDataSource(),this._ro?.disconnect(),this._ro=void 0,this._graphEl=void 0}shouldUpdate(t){if(!this._config)return!1;if(t.size>1||!t.has("hass"))return!0;const e=t.get("hass");return!e||!this.hass||(e.themes!==this.hass.themes||e.locale!==this.hass.locale||e.language!==this.hass.language||this._config.entities.some(t=>e.states[t.entity]!==this.hass.states[t.entity]))}willUpdate(t){(t.has("hass")||t.has("_config")||t.has("_compact"))&&this._syncDataSource(),this.hass&&this._config?.theme&&(t.has("_config")||t.has("hass"))&&this._applyTheme()}updated(){const t=this.renderRoot.querySelector(".graph");t!==this._graphEl&&(this._ro?.disconnect(),this._graphEl=t??void 0,t&&(this._ro??=new ResizeObserver(t=>{const e=Math.round(t[0].contentRect.width);e&&e!==this._width&&(this._width=e)}),this._ro.observe(t)))}_visible(){return this._config.entities.filter(t=>!this._isHidden(t))}_isHidden(t){const e=this.hass?.states[t.entity],i=e?Number(e.state):NaN,s=void 0!==e&&""!==e.state&&Number.isFinite(i);return!(!t.hide_unavailable||s)||(!!(s&&void 0!==t.hide_below&&null!==t.hide_below&&i<Number(t.hide_below))||!!(s&&void 0!==t.hide_above&&null!==t.hide_above&&i>Number(t.hide_above)))}get _hours(){const t=Number(this._config?.hours_to_show??Bt);return t>0?t:Bt}_graphEntities(){return this._visible().filter(t=>!1!==t.show_graph)}_syncDataSource(){const t=this._config;if(!t||!this.hass||!this.isConnected)return;const e=!this._compact&&"none"!==(t.graph??Gt)?this._graphEntities().map(t=>t.entity):[],i=Number(t.statistics_threshold??Kt),s=e.length?JSON.stringify([e,this._hours,i,t.statistics_period??"auto"]):"";if(s===this._dsKey)return void this._ds?.setHass(this.hass);if(this._disposeDataSource(),this._dsKey=s,!s)return;this._ds=new Et(this.hass,{entities:e,hoursToShow:this._hours,statisticsThreshold:i,statisticsPeriod:t.statistics_period,onChange:()=>this._scheduleTick()}),this._dsStarted=Date.now(),this._ds.start().catch(t=>console.warn("best-number-card:",t));const n=36e5*this._hours/Math.max(this._width||400,100);this._ticker=window.setInterval(()=>this._scheduleTick(),Math.min(Math.max(2*n,5e3),3e5))}_disposeDataSource(){this._ds?.dispose(),this._ds=void 0,this._dsKey="",clearInterval(this._ticker),clearTimeout(this._tickTimer),this._tickTimer=void 0}_scheduleTick(){if(void 0!==this._tickTimer)return;const t=Date.now(),e=36e5*this._hours/Math.max(this._width||400,100),i=t-this._dsStarted<5e3?100:Math.min(Math.max(e,1e3),3e4),s=Math.max(0,this._lastTick+i-t);this._tickTimer=window.setTimeout(()=>{this._tickTimer=void 0,this._lastTick=Date.now(),this._tick++},s)}_state(t){return this.hass?.states[t.entity]}_name(t){const e=this._state(t);return t.name??e?.attributes.friendly_name??t.entity}_unit(t){return t.unit??this._state(t)?.attributes.unit_of_measurement??""}_decimals(t,e){if(void 0!==t.decimals&&null!==t.decimals&&""!==t.decimals)return Number(t.decimals);const i=this.hass?.entities?.[t.entity]?.display_precision;if("number"==typeof i)return i;if(void 0!==e){const t=/\.(\d+)$/.exec(e);return t?Math.min(t[1].length,4):0}}_formatState(t){const e=this._state(t);if(!e)return Ht(this.hass,"card.not_found");const i=Number(e.state);return""!==e.state&&Number.isFinite(i)?Dt(this.hass,i,this._decimals(t,e.state)):this.hass?.formatEntityState?.(e)??e.state}_formatValue(t,e){const i=this._decimals(t,this._state(t)?.state);return Dt(this.hass,e,void 0===i?1:i)}_baseColor(t){if(t.color)return t.color;const e=this._config.entities.indexOf(t);if(e<=0)return"var(--accent-color)";return`var(--graph-color-${e+1}, ${Wt[(e-1)%Wt.length]})`}_colorFor(t,e){return t.color_scale?.length&&Number.isFinite(e)?ft(vt(t.color_scale,t.color_scale_mode??"gradient",e,this._resolve)):this._baseColor(t)}_current(t){const e=this._state(t);return e&&""!==e.state?Number(e.state):NaN}_applyTheme(){const t=this.hass?.themes?.themes?.[this._config.theme];if(t)for(const[e,i]of Object.entries(t))"string"==typeof i&&this.style.setProperty(`--${e}`,i)}_graphHeight(){const t=Number(this._config?.height);return t>0?t:Math.round(Math.min(Math.max((this._width||400)/5,56),140))}_labelMargin(t){const e=this._config?.end_labels??qt;if("none"===e)return 0;let i=0;for(const s of t){let t=8;if("icon"!==e&&"icon_value"!==e||(t+=20),"value"===e||"icon_value"===e){t+=7*`${this._formatState(s)} ${this._unit(s)}`.length+4}i=Math.max(i,t)}return i}_buildModel(){const t=this._config;if(!this._ds||!this._width)return;const e=this._graphEntities(),i=this._graphHeight(),s=Math.max(20,this._width-this._labelMargin(e)),n=2===Number(t.detail)?2:1,o=JSON.stringify([this._tick,this._cfgVersion,this._dsKey,this._width,i,s,n]);if(this._model?.key===o)return this._model;const a=Date.now(),r=a-36e5*this._hours,l=Math.max(2,Math.round(s/(2===n?2:8))),h=e.length>1,c=e.map(t=>({e:t,b:Nt(this._ds.series(t.entity)??{t:[],v:[]},r,a,l)})),d=new Map;for(const{e:t,b:e}of c){const i=t.scale||"default",[s,n]=Pt([e]),o=d.get(i)??{lo:1/0,hi:-1/0};o.lo=Math.min(o.lo,s),o.hi=Math.max(o.hi,n),d.set(i,o)}for(const[i,s]of d){const n=e.filter(t=>(t.scale||"default")===i),o=n.map(t=>t.min).filter(t=>null!=t&&""!==t),a=n.map(t=>t.max).filter(t=>null!=t&&""!==t),r=o.length?Math.min(...o.map(Number)):t.limits?.min,l=a.length?Math.max(...a.map(Number)):t.limits?.max;null!=r&&(s.lo=Number(r)),null!=l&&(s.hi=Number(l)),Number.isFinite(s.lo)&&Number.isFinite(s.hi)||(s.lo=0,s.hi=1),s.hi<=s.lo&&(s.hi=s.lo+1,s.lo-=1)}const p=c.map(({e:t,b:e},o)=>{const{lo:a,hi:r}=d.get(t.scale||"default"),l=Number(t.line_width)>0?Number(t.line_width):h?3:4,c=l/2+2,p=i-l/2-2,u=t=>{const e=Math.min(Math.max(t,a),r);return p-(e-a)/(r-a)*(p-c)},m={cfg:t,index:o,buckets:e,segs:kt(e,n,s,u),lo:a,hi:r,y:u,color:this._baseColor(t),lineWidth:l,fill:t.fill??!h};return t.color_scale?.length&&(m.gradId=`${this._uid}-g${o}`,m.grad=function(t,e,i,s,n){const o=s-i;if(!(t.length&&o>0)){const s=ft(vt(t,e,i,n));return[{offset:0,color:s},{offset:1,color:s}]}const a=t=>(t-i)/o,r=[{offset:0,color:ft(vt(t,e,i,n))}];let l=vt(t,e,i,n);for(const o of t){if(o.value<=i||o.value>=s)continue;const t=a(o.value);"step"===e?(r.push({offset:t,color:ft(l)}),l=n(o.color),r.push({offset:t,color:ft(l)})):r.push({offset:t,color:ft(n(o.color))})}return r.push({offset:1,color:ft(vt(t,e,s,n))}),r}(t.color_scale,t.color_scale_mode??"gradient",a,r,this._resolve)),m});return this._model={key:o,width:this._width,plotW:s,height:i,start:r,end:a,series:p},this._model}_entityFromEvent(t){for(const e of t.composedPath()){const t=e?.dataset?.entity;if(t)return t}}_doAction(t,e){const i=this._config,s=i[`${t}_action`]??("tap"===t?{action:"more-info"}:void 0);if(!s||!this.hass)return;if("toggle-compact"===s.action)return void(this._compact=!this._compact);let n=this._visible()[0]?.entity??i.entities[0].entity;"more-info"!==s.action||s.entity||(n=this._entityFromEvent(e)??n),function(t,e,i,s){if(!i||"none"===i.action)return!0;const n=i;switch(i.action){case"more-info":{const e=n.entity??s;return e&&dt(t,"hass-more-info",{entityId:e}),!0}case"toggle":return s&&e.callService("homeassistant","toggle",{entity_id:s}),!0;case"navigate":return n.navigation_path&&(history.pushState(null,"",n.navigation_path),dt(window,"location-changed",{replace:!1})),!0;case"url":return n.url_path&&window.open(n.url_path,!1===n.new_tab?"_self":"_blank"),!0;case"perform-action":case"call-service":{const t=n.perform_action??n.service;if(!t)return!0;const[i,s]=t.split(".",2);return e.callService(i,s,n.data??n.service_data,n.target),!0}default:;}}(this,this.hass,s,n)}render(){const t=this._config;if(!t||!this.hass)return G;const e=this._visible(),i=!this._compact&&"none"!==(t.graph??Gt);return j`
+    .text-button.danger {
+      color: var(--error-color, #db4437);
+    }
+  `,customElements.get("best-number-card-editor")||customElements.define("best-number-card-editor",Yt);const Zt=ht,qt=24,Jt="line",Qt=6,te=!0,ee="none",ie="dot",se="hover";let oe=0;const ne=t=>null!=t&&""!==t;class re extends lt{constructor(){super(...arguments),this._compact=!1,this._width=0,this._hoverX=null,this._tick=0,this._off=new Set,this._uid="bnc"+ ++oe,this._cfgVersion=0,this._dsKey="",this._dsStarted=0,this._lastTick=0,this._held=!1,this._suppressClick=!1,this._storageKey="",this._resolve=t=>mt(t,this),this._onPointerDown=t=>{this._held=!1,this._down={x:t.clientX,y:t.clientY},this._config?.hold_action&&"none"!==this._config.hold_action.action&&(clearTimeout(this._holdTimer),this._holdTimer=window.setTimeout(()=>{this._held=!0,this._doAction("hold",t)},500))},this._onPointerUp=()=>clearTimeout(this._holdTimer),this._onKeyDown=t=>{"Enter"!==t.key&&" "!==t.key||(t.preventDefault(),this._doAction("tap",t))},this._onClick=t=>{if(clearTimeout(this._holdTimer),this._suppressClick)return void(this._suppressClick=!1);if(this._held)return void(this._held=!1);if(this._down&&Math.hypot(t.clientX-this._down.x,t.clientY-this._down.y)>10)return;const e=this._fromEvent(t,"toggle");if(e&&!1!==this._config?.legend_toggle)return void this._toggleSeries(e);const i=this._config?.double_tap_action;if(i&&"none"!==i.action)return this._clickTimer?(clearTimeout(this._clickTimer),this._clickTimer=void 0,void this._doAction("double_tap",t)):void(this._clickTimer=window.setTimeout(()=>{this._clickTimer=void 0,this._doAction("tap",t)},250));this._doAction("tap",t)},this._onGraphDown=t=>{"mouse"!==t.pointerType&&(this._scrub={x:t.clientX,y:t.clientY,active:!1})},this._onMove=t=>{if(!1===this._config?.tooltip)return;if("mouse"===t.pointerType)return void this._setHoverFromEvent(t);const e=this._scrub;if(e){if(!e.active){const i=Math.abs(t.clientX-e.x),s=Math.abs(t.clientY-e.y);if(i<8||i<s)return;e.active=!0,clearTimeout(this._holdTimer),clearTimeout(this._hideTimer)}this._setHoverFromEvent(t)}},this._onGraphUp=t=>{"mouse"!==t.pointerType&&(this._scrub?.active&&(this._suppressClick=!0,setTimeout(()=>this._suppressClick=!1,400),clearTimeout(this._hideTimer),this._hideTimer=window.setTimeout(()=>this._hoverX=null,2e3)),this._scrub=void 0)},this._onLeave=t=>{"mouse"===t.pointerType&&(this._hoverX=null)}}static getConfigElement(){return document.createElement("best-number-card-editor")}static getStubConfig(t){return{entities:Object.keys(t.states).filter(e=>le(t,e)).slice(0,2).map(t=>({entity:t}))}}setConfig(t){if(!t)throw new Error("Invalid configuration");const e=(Array.isArray(t.entities)?t.entities:t.entity?[t.entity]:[]).map(t=>"string"==typeof t?{entity:t}:{...t}).filter(t=>t&&"string"==typeof t.entity);if(!e.length)throw new Error("Please define at least one entity");for(const t of e)t.color_scale&&(t.color_scale=gt(t.color_scale));const i=this._config;if(this._cfgVersion++,this._config={...t,entities:e},this._storageKey=`best-number-card:compact:${function(t){let e=5381;for(let i=0;i<t.length;i++)e=(e<<5)+e+t.charCodeAt(i)|0;return(e>>>0).toString(36)}(JSON.stringify([t.name,e.map(t=>t.entity)]))}`,(!i||i.compact!==t.compact)&&(this._compact=!!t.compact,!1!==t.remember_compact)){const e=function(t){try{const e=window.localStorage?.getItem(t);return e?JSON.parse(e):void 0}catch{return}}(this._storageKey);e&&e.d===!!t.compact&&(this._compact=!!e.v)}}getCardSize(){return this._compact?1:3}getGridOptions(){return{columns:6,min_columns:3,min_rows:1}}connectedCallback(){super.connectedCallback(),this._syncDataSource()}disconnectedCallback(){super.disconnectedCallback(),this._disposeDataSource(),this._ro?.disconnect(),this._ro=void 0,this._graphEl=void 0,clearTimeout(this._hideTimer)}shouldUpdate(t){if(!this._config)return!1;if(t.size>1||!t.has("hass"))return!0;const e=t.get("hass");return!e||!this.hass||(e.themes!==this.hass.themes||e.locale!==this.hass.locale||e.language!==this.hass.language||this._config.entities.some(t=>e.states[t.entity]!==this.hass.states[t.entity]))}willUpdate(t){(t.has("hass")||t.has("_config")||t.has("_compact"))&&this._syncDataSource(),this.hass&&this._config?.theme&&(t.has("_config")||t.has("hass"))&&this._applyTheme()}updated(){const t=this.renderRoot.querySelector(".graph");t!==this._graphEl&&(this._ro?.disconnect(),this._graphEl=t??void 0,t&&(this._ro??=new ResizeObserver(t=>{const e=Math.round(t[0].contentRect.width);e&&e!==this._width&&(this._width=e)}),this._ro.observe(t)))}_visible(){return this._config.entities.filter(t=>!this._isHidden(t))}_isHidden(t){const e=this.hass?.states[t.entity],i=e?Number(e.state):NaN,s=void 0!==e&&""!==e.state&&Number.isFinite(i);return!(!t.hide_unavailable||s)||(!!(s&&ne(t.hide_below)&&i<Number(t.hide_below))||!!(s&&ne(t.hide_above)&&i>Number(t.hide_above)))}get _hours(){const t=Number(this._config?.hours_to_show??qt);return t>0?t:qt}_graphEntities(){return this._visible().filter(t=>!1!==t.show_graph)}_syncDataSource(){const t=this._config;if(!t||!this.hass||!this.isConnected)return;const e=!this._compact&&"none"!==(t.graph??Jt)?this._graphEntities().map(t=>t.entity):[],i=Number(t.statistics_threshold??Qt),s=e.length?JSON.stringify([e,this._hours,i,t.statistics_period??"auto"]):"";if(s===this._dsKey)return void this._ds?.setHass(this.hass);if(this._disposeDataSource(),this._dsKey=s,!s)return;this._ds=new Et(this.hass,{entities:e,hoursToShow:this._hours,statisticsThreshold:i,statisticsPeriod:t.statistics_period,onChange:()=>this._scheduleTick()}),this._dsStarted=Date.now(),this._ds.start().catch(t=>console.warn("best-number-card:",t));const o=36e5*this._hours/Math.max(this._width||400,100);this._ticker=window.setInterval(()=>this._scheduleTick(),Math.min(Math.max(2*o,5e3),3e5))}_disposeDataSource(){this._ds?.dispose(),this._ds=void 0,this._dsKey="",clearInterval(this._ticker),clearTimeout(this._tickTimer),this._tickTimer=void 0}_scheduleTick(){if(void 0!==this._tickTimer)return;const t=Date.now(),e=36e5*this._hours/Math.max(this._width||400,100),i=t-this._dsStarted<5e3?100:Math.min(Math.max(e,1e3),3e4),s=Math.max(0,this._lastTick+i-t);this._tickTimer=window.setTimeout(()=>{this._tickTimer=void 0,this._lastTick=Date.now(),this._tick++},s)}_state(t){return this.hass?.states[t.entity]}_name(t){return t.name??this._state(t)?.attributes.friendly_name??t.entity}_unit(t){return t.unit??this._state(t)?.attributes.unit_of_measurement??""}_decimals(t,e){if(ne(t.decimals))return Number(t.decimals);const i=this.hass?.entities?.[t.entity]?.display_precision;if("number"==typeof i)return i;if(void 0!==e){const t=/\.(\d+)$/.exec(e);return t?Math.min(t[1].length,4):0}}_formatState(t){const e=this._state(t);if(!e)return Pt(this.hass,"card.not_found");const i=Number(e.state);return""!==e.state&&Number.isFinite(i)?Ot(this.hass,i,this._decimals(t,e.state)):this.hass?.formatEntityState?.(e)??e.state}_formatValue(t,e){const i=this._decimals(t,this._state(t)?.state);return Ot(this.hass,e,void 0===i?1:i)}_baseColor(t){return t.color?t.color:Rt(this._config.entities.indexOf(t))}_colorFor(t,e){return t.color_scale?.length&&Number.isFinite(e)?_t(vt(t.color_scale,t.color_scale_mode??"gradient",e,this._resolve)):this._baseColor(t)}_current(t){const e=this._state(t);return e&&""!==e.state?Number(e.state):NaN}_applyTheme(){const t=this.hass?.themes?.themes?.[this._config.theme];if(t)for(const[e,i]of Object.entries(t))"string"==typeof i&&this.style.setProperty(`--${e}`,i)}_setCompact(t){this._compact=t,this._hoverX=null,!1!==this._config?.remember_compact&&function(t,e){try{window.localStorage?.setItem(t,JSON.stringify(e))}catch{}}(this._storageKey,{v:t,d:!!this._config?.compact})}_toggleSeries(t){const e=new Set(this._off);e.has(t)?e.delete(t):e.add(t),this._off=e}_graphHeight(){const t=Number(this._config?.height);return t>0?t:Math.round(Math.min(Math.max((this._width||400)/5,56),140))}_labelMargin(t){const e=this._config?.end_labels??ee;if("none"===e)return 0;let i=0;for(const s of t){let t=8;if("icon"!==e&&"icon_value"!==e||(t+=20),"value"===e||"icon_value"===e){t+=7*`${this._formatState(s)} ${this._unit(s)}`.length+4}i=Math.max(i,t)}return i}_buildModel(){const t=this._config;if(!this._ds||!this._width)return;const e=this._graphEntities(),i=this._graphHeight(),s=Math.max(20,this._width-this._labelMargin(e.filter(t=>!this._off.has(t.entity)))),o=2===Number(t.detail)?2:1,n=JSON.stringify([this._tick,this._cfgVersion,this._dsKey,this._width,i,s,o,[...this._off],this._ds.loaded]);if(this._model?.key===n)return this._model;const r=Date.now(),a=r-36e5*this._hours,l=Math.max(2,Math.round(s/(2===o?2:8))),c=e.filter(t=>!this._off.has(t.entity)),h=c.length>1,d=e.map(t=>({e:t,b:Mt(this._ds.series(t.entity)??{t:[],v:[]},a,r,l)})),p=new Map;for(const{e:t,b:e}of d){const i=t.scale||"default",s=p.get(i)??{lo:1/0,hi:-1/0};if(!this._off.has(t.entity)||!p.has(i)){const[i,o]=Vt([e]);this._off.has(t.entity)||(s.lo=Math.min(s.lo,i),s.hi=Math.max(s.hi,o),s.first??=t)}p.set(i,s)}for(const[i,s]of p){const o=e.filter(t=>(t.scale||"default")===i),n=o.map(t=>t.min).filter(ne).map(Number),r=o.map(t=>t.max).filter(ne).map(Number),a=n.length?Math.min(...n):t.limits?.min,l=r.length?Math.max(...r):t.limits?.max;ne(a)&&(s.lo=Number(a)),ne(l)&&(s.hi=Number(l)),Number.isFinite(s.lo)&&Number.isFinite(s.hi)||(s.lo=0,s.hi=1),s.hi<=s.lo&&(s.hi=s.lo+1,s.lo-=1)}let u=!1;const m=d.map(({e:e,b:n},r)=>{const{lo:a,hi:l}=p.get(e.scale||"default"),c=Number(e.line_width)>0?Number(e.line_width):h?3:4,d=c/2+2,m=i-c/2-2,f=t=>{const e=Math.min(Math.max(t,a),l);return m-(e-a)/(l-a)*(m-d)};let _=0,g=0;for(const t of n.mean)Number.isFinite(t)&&(_+=t,g++);const[v,b]=Vt([n]);g&&(u=!0);const y={cfg:e,index:r,buckets:n,segs:Tt(n,o,s,f),lo:a,hi:l,y:f,color:this._baseColor(e),lineWidth:c,fill:e.fill??!h,off:this._off.has(e.entity),ext:{min:v,max:b,avg:g?_/g:NaN}};if(e.color_scale?.length){y.gradId=`${this._uid}-g${r}`;const i=e.color_scale_mode??"gradient";y.grad=bt(e.color_scale,i,a,l,this._resolve),y.fill&&"time"===(e.fill_gradient??t.fill_gradient)&&(y.fillGradId=`${this._uid}-f${r}`,y.fillGrad=function(t,e,i,s){const o=i.length,n=i=>_t(vt(t,e,i,s)),r=[];let a=NaN,l=0;for(let s=0;s<o;s++){const c=i[s];if(!Number.isFinite(c))continue;const h=o>1?s/(o-1):0;if(Number.isFinite(a)&&yt(t,e,a,c)){const t=(l+h)/2;r.push({offset:t,color:n(a)},{offset:t,color:n(c)})}r.push({offset:h,color:n(c)}),a=c,l=h}if(!r.length){const t=n(NaN);return[{offset:0,color:t},{offset:1,color:t}]}return r.filter((t,e)=>0===e||e===r.length-1||t.color!==r[e-1].color||t.color!==r[e+1].color)}(e.color_scale,i,n.mean,this._resolve))}return y}),f=[];for(const t of p.values())t.first&&f.push({lo:t.lo,hi:t.hi,entity:t.first,colored:ae(p)>1});const _=[];if(t.show_thresholds){const t=new Set;for(const e of m)if(!e.off)for(const i of It(e.cfg.color_scale,e.cfg.color_scale_mode)){if(i<=e.lo||i>=e.hi)continue;const s=Math.round(e.y(i));t.has(s)||(t.add(s),_.push({y:s,value:i,entity:e.cfg,color:this._colorFor(e.cfg,i)}))}}return this._model={key:n,width:this._width,plotW:s,height:i,start:a,end:r,series:m,axes:f,thresholds:_,hasData:u},this._model}_fromEvent(t,e){for(const i of t.composedPath()){const t=i?.dataset?.[e];if(t)return t}}_doAction(t,e){const i=this._config,s=i[`${t}_action`]??("tap"===t?{action:"more-info"}:void 0);if(!s||!this.hass)return;if("toggle-compact"===s.action)return void this._setCompact(!this._compact);let o=this._visible()[0]?.entity??i.entities[0].entity;"more-info"!==s.action||s.entity||(o=this._fromEvent(e,"entity")??o),function(t,e,i,s){if(!i||"none"===i.action)return!0;const o=i;switch(i.action){case"more-info":{const e=o.entity??s;return e&&dt(t,"hass-more-info",{entityId:e}),!0}case"toggle":return s&&e.callService("homeassistant","toggle",{entity_id:s}),!0;case"navigate":return o.navigation_path&&(history.pushState(null,"",o.navigation_path),dt(window,"location-changed",{replace:!1})),!0;case"url":return o.url_path&&window.open(o.url_path,!1===o.new_tab?"_self":"_blank"),!0;case"perform-action":case"call-service":{const t=o.perform_action??o.service;if(!t)return!0;const[i,s]=t.split(".",2);return e.callService(i,s,o.data??o.service_data,o.target),!0}default:;}}(this,this.hass,s,o)}_setHoverFromEvent(t){if(!this._model)return;const e=t.currentTarget.getBoundingClientRect(),i=t.clientX-e.left;this._hoverX=i>=0&&i<=this._model.plotW?i:null}render(){const t=this._config;if(!t||!this.hass)return B;const e=this._visible(),i=!this._compact&&"none"!==(t.graph??Jt),s=i?this._buildModel():void 0;return R`
       <ha-card
         class=${this._compact?"compact":""}
         @pointerdown=${this._onPointerDown}
         @pointerup=${this._onPointerUp}
         @pointercancel=${this._onPointerUp}
         @click=${this._onClick}
+        @keydown=${this._onKeyDown}
         tabindex="0"
+        role="button"
+        aria-label=${t.name??this._name(e[0]??t.entities[0])}
       >
-        ${this._compact?this._renderCompact(e):this._renderHeader(e)}
-        ${i&&e.length?this._renderGraph():G}
+        ${this._compact?this._renderCompact(e):this._renderHeader(e,s)}
+        ${i&&e.length?this._renderGraph(s):B}
       </ha-card>
-    `}_renderIcon(t,e){const i=t?this._state(t):void 0;return j`<ha-state-icon .hass=${this.hass} .stateObj=${i} .icon=${e??t?.icon}></ha-state-icon>`}_renderMarker(t){const e=this._config.legend_icon??Zt;if("none"===e)return G;const i=this._colorFor(t,this._current(t));return"icon"===e?j`<span class="marker icon" style="color:${i}">${this._renderIcon(t)}</span>`:j`<span class="marker dot" style="background:${i}"></span>`}_valueStyle(t){return t.color_scale?.length?`color:${this._colorFor(t,this._current(t))}`:""}_renderHeader(t){const e=this._config,i=1===e.entities.length,s=t[0]??e.entities[0],n=e.value_display??(i?"primary":"all"),o=e.name??(i||"primary"===n?this._name(s):void 0),a=e.icon??(i||"primary"===n?void 0:null),r=void 0!==o||null!==a,l=r?j`<div class="header">
-          <div class="name">${o??""}</div>
-          ${null!==a?j`<div class="icon">${this._renderIcon(s,a)}</div>`:G}
-        </div>`:G;if(!t.length)return j`${l}<div class="info empty">${Ht(this.hass,"card.all_hidden")}</div>`;if("none"===n)return j`${l}`;if("primary"===n)return j`${l}
-        <div class="info" data-entity=${s.entity}>
-          <span class="value" style=${this._valueStyle(s)}>${this._formatState(s)}</span>
-          <span class="measurement">${this._unit(s)}</span>
-        </div>`;const h=t.filter(t=>!1!==t.show_value),c=h.length>1;return j`${l}
-      <div class="values ${c?"multi":""} ${r?"":"noheader"}">
-        ${h.map(t=>j`<div class="item" data-entity=${t.entity}>
-            ${c?j`<div class="item-name">${this._renderMarker(t)}<span>${this._name(t)}</span></div>`:G}
+    `}_renderIcon(t,e){const i=t?this._state(t):void 0;return R`<ha-state-icon .hass=${this.hass} .stateObj=${i} .icon=${e??t?.icon}></ha-state-icon>`}_renderMarker(t){const e=this._config.legend_icon??ie;if("none"===e)return B;const i=this._colorFor(t,this._current(t));return"icon"===e?R`<span class="marker icon" style="color:${i}">${this._renderIcon(t)}</span>`:R`<span class="marker dot" style="background:${i}"></span>`}_valueStyle(t){return t.color_scale?.length?`color:${this._colorFor(t,this._current(t))}`:""}_renderExtrema(t,e){if(!this._config.show_extrema||!e)return B;const i=e.series.find(e=>e.cfg===t);if(!i||!Number.isFinite(i.ext.min))return B;const s=t=>Pt(this.hass,t);return R`<div class="extrema">
+      <span title=${s("card.min")}>↓ ${this._formatValue(t,i.ext.min)}</span>
+      <span title=${s("card.avg")}>Ø ${this._formatValue(t,i.ext.avg)}</span>
+      <span title=${s("card.max")}>↑ ${this._formatValue(t,i.ext.max)}</span>
+    </div>`}_renderHeader(t,e){const i=this._config,s=1===i.entities.length,o=t[0]??i.entities[0],n=i.value_display??(s?"primary":"all"),r=i.name??(s||"primary"===n?this._name(o):void 0),a=i.icon??(s||"primary"===n?void 0:null),l=void 0!==r||null!==a,c=l?R`<div class="header">
+          <div class="name">${r??""}</div>
+          ${null!==a?R`<div class="icon">${this._renderIcon(o,a)}</div>`:B}
+        </div>`:B;if(!t.length)return R`${c}<div class="info empty">${Pt(this.hass,"card.all_hidden")}</div>`;if("none"===n)return R`${c}`;if("primary"===n)return R`${c}
+        <div class="info fade" data-entity=${o.entity}>
+          <span class="value" style=${this._valueStyle(o)}>${this._formatState(o)}</span>
+          <span class="measurement">${this._unit(o)}</span>
+          ${this._renderExtrema(o,e)}
+        </div>`;const h=t.filter(t=>!1!==t.show_value),d=h.length>1,p=d&&!1!==i.legend_toggle&&"none"!==i.graph;return R`${c}
+      <div class="values fade ${d?"multi":""} ${l?"":"noheader"}">
+        ${h.map(t=>{const i=this._off.has(t.entity);return R`<div class="item ${i?"off":""}" data-entity=${t.entity}>
+            ${d?R`<div
+                  class="item-name ${p?"toggle":""}"
+                  data-toggle=${p?t.entity:""}
+                  title=${p?Pt(this.hass,"card.toggle_series"):""}
+                >
+                  ${this._renderMarker(t)}<span>${this._name(t)}</span>
+                </div>`:B}
             <div class="item-value">
               <span class="value" style=${this._valueStyle(t)}>${this._formatState(t)}</span>
               <span class="measurement">${this._unit(t)}</span>
             </div>
-          </div>`)}
-      </div>`}_renderCompact(t){const e=this._config,i=t.filter(t=>!1!==t.show_value);return j`<div class="compact-row">
-      ${e.name?j`<span class="compact-name">${e.name}</span>`:G}
+            ${this._renderExtrema(t,e)}
+          </div>`})}
+      </div>`}_renderCompact(t){const e=this._config,i=t.filter(t=>!1!==t.show_value);return R`<div class="compact-row fade">
+      ${e.name?R`<span class="compact-name">${e.name}</span>`:B}
       <div class="compact-values">
-        ${i.length?i.map(t=>j`<span class="compact-item" data-entity=${t.entity} title=${this._name(t)}>
-                ${i.length>1||"icon"===e.legend_icon?this._renderMarker(t):G}
-                <span class="value" style=${this._valueStyle(t)}>${this._formatState(t)}</span>
-                <span class="measurement">${this._unit(t)}</span>
-              </span>`):j`<span class="empty">${Ht(this.hass,"card.all_hidden")}</span>`}
+        ${i.length?i.map(t=>R`<span class="compact-item" data-entity=${t.entity} title=${this._name(t)}>
+                ${i.length>1||"icon"===e.legend_icon?this._renderMarker(t):B}
+                <span class="vm">
+                  <span class="value" style=${this._valueStyle(t)}>${this._formatState(t)}</span>
+                  <span class="measurement">${this._unit(t)}</span>
+                </span>
+              </span>`):R`<span class="empty">${Pt(this.hass,"card.all_hidden")}</span>`}
       </div>
-    </div>`}_renderGraph(){const t=this._buildModel(),e=this._graphHeight();return j`<div
-      class="graph"
+    </div>`}_renderGraph(t){const e=this._graphHeight(),i=!t||!this._ds?.loaded&&!t.hasData,s=this._config.y_axis??se;return R`<div
+      class="graph fade ${null!==this._hoverX?"active":""}"
       style="height:${e}px"
+      @pointerdown=${this._onGraphDown}
       @pointermove=${this._onMove}
+      @pointerup=${this._onGraphUp}
+      @pointercancel=${this._onGraphUp}
       @pointerleave=${this._onLeave}
     >
-      ${t?this._renderSvg(t):G} ${t?this._renderEndLabels(t):G}
-      ${t?this._renderTooltip(t):G}
-    </div>`}_renderSvg(t){const e=this._config.smoothing??Xt,i=this._hoverX;return j`<svg width=${t.width} height=${t.height} viewBox="0 0 ${t.width} ${t.height}">
+      ${i?R`<div class="loading" aria-label=${Pt(this.hass,"card.loading")}></div>`:R`${this._renderSvg(t)} ${this._renderEndLabels(t)}
+          ${t.hasData?B:R`<div class="nodata">${Pt(this.hass,"card.no_data")}</div>`}
+          ${"none"!==s&&t.hasData?this._renderAxes(t,s):B}
+          ${this._renderTooltip(t)}`}
+    </div>`}_renderAxes(t,e){const i=(t,e)=>`${this._formatValue(t,e)} ${this._unit(t)}`.trim();return R`<div class="axes ${"hover"===e?"hover":""}">
+      ${t.axes.map(t=>{const e=e=>t.colored?`color:${this._colorFor(t.entity,e)}`:"";return R`<div class="axis">
+          <span style=${e(t.hi)}>${i(t.entity,t.hi)}</span><span style=${e(t.lo)}>${i(t.entity,t.lo)}</span>
+        </div>`})}
+    </div>`}_renderSvg(t){const e=this._config.smoothing??te,i=this._hoverX,s=t.series.filter(t=>!t.off);return R`<svg width=${t.width} height=${t.height} viewBox="0 0 ${t.width} ${t.height}">
       <defs>
-        ${t.series.map(t=>t.gradId?W`<linearGradient id=${t.gradId} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1=${t.y(t.lo)} y2=${t.y(t.hi)}>
+        ${s.map(t=>t.gradId?W`<linearGradient id=${t.gradId} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1=${t.y(t.lo)} y2=${t.y(t.hi)}>
                 ${t.grad.map(t=>W`<stop offset=${t.offset} stop-color=${t.color}></stop>`)}
-              </linearGradient>`:G)}
+              </linearGradient>`:B)}
+        ${s.map(e=>e.fillGradId?W`<linearGradient id=${e.fillGradId} gradientUnits="userSpaceOnUse" x1="0" x2=${t.plotW} y1="0" y2="0">
+                ${e.fillGrad.map(t=>W`<stop offset=${t.offset} stop-color=${t.color}></stop>`)}
+              </linearGradient>`:B)}
       </defs>
-      ${t.series.map(i=>{const s=i.gradId?`url(#${i.gradId})`:i.color;return W`<g>
-          ${i.fill?i.segs.map(i=>W`<path class="fill" d=${function(t,e,i){return t.length<2?"":`${Tt(t,e)}L${Mt(t[t.length-1][0])},${i}L${Mt(t[0][0])},${i}Z`}(i,e,t.height)} style="fill:${s}"></path>`):G}
-          ${i.segs.map(t=>W`<path class="line" d=${Tt(t,e)} style="stroke:${s};stroke-width:${i.lineWidth}px"></path>`)}
+      ${t.thresholds.map(e=>W`<line class="threshold" x1="0" x2=${t.plotW} y1=${e.y} y2=${e.y} style="stroke:${e.color}"></line>`)}
+      ${s.map(i=>{const s=i.gradId?`url(#${i.gradId})`:i.color,o=i.fillGradId?`url(#${i.fillGradId})`:s;return W`<g>
+          ${i.fill?i.segs.map(i=>W`<path class="fill" d=${function(t,e,i){return t.length<2?"":`${Ht(t,e)}L${Ct(t[t.length-1][0])},${i}L${Ct(t[0][0])},${i}Z`}(i,e,t.height)} style="fill:${o}"></path>`):B}
+          ${i.segs.map(t=>W`<path class="line" d=${Ht(t,e)} style="stroke:${s};stroke-width:${i.lineWidth}px"></path>`)}
         </g>`})}
       ${null!==i?W`<line class="cursor" x1=${i} x2=${i} y1="0" y2=${t.height}></line>
-          ${t.series.map(e=>{const s=Ct(e.buckets,i,t.plotW);return Number.isFinite(s)?W`<circle class="dot" cx=${i} cy=${e.y(s)} r="4" style="fill:${this._colorFor(e.cfg,s)}"></circle>`:G})}`:G}
-    </svg>`}_renderEndLabels(t){const e=this._config.end_labels??qt;if("none"===e)return G;const i=t.series.map(e=>{const i=this._current(e.cfg),s=function(t){for(let e=t.length-1;e>=0;e--)if(Number.isFinite(t[e]))return t[e];return NaN}(e.buckets.mean),n=e.y(Number.isFinite(i)?i:s);return{s:e,v:i,y:Number.isFinite(n)?n:t.height/2}}).sort((t,e)=>t.y-e.y);for(let t=1;t<i.length;t++)i[t].y=Math.max(i[t].y,i[t-1].y+18);const s=i.length?i[i.length-1].y-(t.height-9):0;if(s>0)for(const t of i)t.y-=s;for(const t of i)t.y=Math.max(t.y,9);return j`${i.map(({s:i,v:s,y:n})=>{const o=this._colorFor(i.cfg,s);return j`<div class="end-label" data-entity=${i.cfg.entity} style="left:${t.plotW+4}px;top:${n}px;color:${o}">
-        ${"icon"===e||"icon_value"===e?this._renderIcon(i.cfg):G}
-        ${"value"===e||"icon_value"===e?j`<span>${this._formatState(i.cfg)}<small>${this._unit(i.cfg)?` ${this._unit(i.cfg)}`:""}</small></span>`:G}
-      </div>`})}`}_renderTooltip(t){const e=this._hoverX;if(null===e)return G;const i=t.start+e/t.plotW*(t.end-t.start),s=t.series.map(i=>({s:i,v:Ct(i.buckets,e,t.plotW)})),n=e>t.width/2;return j`<div class="tooltip" style="${n?`right:${t.width-e+10}px`:`left:${e+10}px`}">
-      <div class="tt-time">${function(t,e,i){const s=t?.locale?.language??t?.language??"en",n=t?.locale?.time_format,o="12"===n||"24"!==n&&void 0;return new Intl.DateTimeFormat(s,{...i?{day:"2-digit",month:"2-digit"}:{},hour:"2-digit",minute:"2-digit",hour12:o}).format(e)}(this.hass,i,this._hours>24)}</div>
-      ${s.map(({s:e,v:i})=>j`<div class="tt-row">
-          <span class="marker dot" style="background:${this._colorFor(e.cfg,i)}"></span>
-          ${t.series.length>1?j`<span class="tt-name">${this._name(e.cfg)}</span>`:G}
-          <span class="tt-value">${Number.isFinite(i)?this._formatValue(e.cfg,i):"–"} ${this._unit(e.cfg)}</span>
+          ${s.map(e=>{const s=Ft(e.buckets,i,t.plotW);return Number.isFinite(s)?W`<circle class="dot" cx=${i} cy=${e.y(s)} r="4" style="fill:${this._colorFor(e.cfg,s)}"></circle>`:B})}`:B}
+    </svg>
+    ${t.thresholds.map(e=>R`<div class="threshold-label" style="top:${e.y}px;right:${t.width-t.plotW+4}px;color:${e.color}">
+        ${this._formatValue(e.entity,e.value)}
+      </div>`)}`}_renderEndLabels(t){const e=this._config.end_labels??ee;if("none"===e)return B;const i=t.series.filter(t=>!t.off).map(e=>{const i=this._current(e.cfg),s=function(t){for(let e=t.length-1;e>=0;e--)if(Number.isFinite(t[e]))return t[e];return NaN}(e.buckets.mean),o=e.y(Number.isFinite(i)?i:s);return{s:e,v:i,y:Number.isFinite(o)?o:t.height/2}}).sort((t,e)=>t.y-e.y);for(let t=1;t<i.length;t++)i[t].y=Math.max(i[t].y,i[t-1].y+18);const s=i.length?i[i.length-1].y-(t.height-9):0;if(s>0)for(const t of i)t.y-=s;for(const t of i)t.y=Math.max(t.y,9);return R`${i.map(({s:i,v:s,y:o})=>{const n=this._colorFor(i.cfg,s);return R`<div class="end-label" data-entity=${i.cfg.entity} style="left:${t.plotW+4}px;top:${o}px;color:${n}">
+        ${"icon"===e||"icon_value"===e?this._renderIcon(i.cfg):B}
+        ${"value"===e||"icon_value"===e?R`<span>${this._formatState(i.cfg)}<small>${this._unit(i.cfg)?` ${this._unit(i.cfg)}`:""}</small></span>`:B}
+      </div>`})}`}_renderTooltip(t){const e=this._hoverX;if(null===e)return B;const i=t.start+e/t.plotW*(t.end-t.start),s=t.series.filter(t=>!t.off).map(i=>({s:i,v:Ft(i.buckets,e,t.plotW)})),o=e>t.width/2;return R`<div class="tooltip" style="${o?`right:${t.width-e+10}px`:`left:${e+10}px`}">
+      <div class="tt-time">${function(t,e,i){const s=t?.locale?.language??t?.language??"en",o=t?.locale?.time_format,n="12"===o||"24"!==o&&void 0;return new Intl.DateTimeFormat(s,{...i?{day:"2-digit",month:"2-digit"}:{},hour:"2-digit",minute:"2-digit",hour12:n}).format(e)}(this.hass,i,this._hours>24)}</div>
+      ${s.map(({s:t,v:e})=>R`<div class="tt-row">
+          <span class="marker dot" style="background:${this._colorFor(t.cfg,e)}"></span>
+          ${s.length>1?R`<span class="tt-name">${this._name(t.cfg)}</span>`:B}
+          <span class="tt-value">${Number.isFinite(e)?this._formatValue(t.cfg,e):"–"} ${this._unit(t.cfg)}</span>
         </div>`)}
-    </div>`}}Yt.properties={hass:{attribute:!1},_config:{state:!0},_compact:{state:!0},_width:{state:!0},_hoverX:{state:!0},_tick:{state:!0}},Yt.styles=o`
+    </div>`}}function ae(t){let e=0;for(const i of t.values())i.first&&e++;return e}function le(t,e){const i=e.split(".")[0];if(!["sensor","number","input_number"].includes(i))return!1;const s=t.states[e];if(!s)return!1;const o=s.attributes;return!("sensor"===i&&!o.unit_of_measurement&&!o.state_class)&&("unavailable"===s.state||"unknown"===s.state||Number.isFinite(Number(s.state)))}re.properties={hass:{attribute:!1},_config:{state:!0},_compact:{state:!0},_width:{state:!0},_hoverX:{state:!0},_tick:{state:!0},_off:{state:!0}},re.styles=n`
     :host {
       display: block;
     }
@@ -236,6 +509,23 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       cursor: pointer;
       outline: none;
       box-sizing: border-box;
+    }
+    ha-card:focus-visible {
+      box-shadow: 0 0 0 2px var(--primary-color);
+    }
+    .fade {
+      animation: bnc-in 0.2s ease-out;
+    }
+    @keyframes bnc-in {
+      from {
+        opacity: 0;
+        transform: translateY(3px);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .fade {
+        animation: none;
+      }
     }
     .header {
       display: flex;
@@ -276,6 +566,14 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       font-size: 18px;
       color: var(--secondary-text-color);
     }
+    .extrema {
+      display: flex;
+      gap: 10px;
+      font-size: 12px;
+      line-height: 16px;
+      color: var(--secondary-text-color);
+      white-space: nowrap;
+    }
     .values {
       display: flex;
       flex-wrap: wrap;
@@ -295,6 +593,13 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
     }
     .item {
       min-width: 0;
+      transition: opacity 0.2s;
+    }
+    .item.off {
+      opacity: 0.45;
+    }
+    .item.off .item-name span {
+      text-decoration: line-through;
     }
     .item-value {
       line-height: 28px;
@@ -311,6 +616,14 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .item-name.toggle {
+      border-radius: 4px;
+    }
+    @media (hover: hover) {
+      .item-name.toggle:hover {
+        color: var(--primary-text-color);
+      }
+    }
     .marker.dot {
       display: inline-block;
       flex: none;
@@ -319,8 +632,13 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       border-radius: 50%;
     }
     .marker.icon {
-      --mdc-icon-size: 16px;
+      --mdc-icon-size: 18px;
       display: inline-flex;
+      align-items: center;
+      line-height: 0;
+    }
+    .marker.icon ha-state-icon {
+      display: flex;
     }
     .graph {
       position: relative;
@@ -342,6 +660,20 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       opacity: 0.15;
       stroke: none;
     }
+    .threshold {
+      stroke-width: 1;
+      stroke-dasharray: 4 4;
+      opacity: 0.7;
+    }
+    .threshold-label {
+      position: absolute;
+      transform: translateY(-100%);
+      font-size: 10px;
+      line-height: 12px;
+      padding-bottom: 1px;
+      pointer-events: none;
+      opacity: 0.9;
+    }
     .cursor {
       stroke: var(--secondary-text-color);
       stroke-width: 1;
@@ -351,6 +683,35 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
     .dot {
       stroke: var(--card-background-color, #fff);
       stroke-width: 2;
+    }
+    .axes {
+      position: absolute;
+      inset: 0 auto 0 0;
+      display: flex;
+      gap: 6px;
+      padding: 2px 6px;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .axes.hover {
+      opacity: 0;
+    }
+    .graph:hover .axes.hover,
+    .graph.active .axes.hover {
+      opacity: 1;
+    }
+    .axis {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 10px;
+      line-height: 12px;
+      color: var(--secondary-text-color);
+    }
+    .axis span {
+      background: color-mix(in srgb, var(--card-background-color, #fff) 75%, transparent);
+      border-radius: 3px;
+      padding: 0 2px;
     }
     .end-label {
       position: absolute;
@@ -368,6 +729,41 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
     .end-label small {
       font-size: 11px;
       opacity: 0.8;
+    }
+    .loading {
+      position: absolute;
+      inset: 20% 0 0 0;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--secondary-text-color) 12%, transparent) 50%,
+        transparent 100%
+      );
+      background-size: 200% 100%;
+      animation: bnc-shimmer 1.4s linear infinite;
+      border-radius: 0 0 12px 12px;
+    }
+    @keyframes bnc-shimmer {
+      from {
+        background-position: 100% 0;
+      }
+      to {
+        background-position: -100% 0;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .loading {
+        animation: none;
+      }
+    }
+    .nodata {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--secondary-text-color);
     }
     .tooltip {
       position: absolute;
@@ -421,12 +817,15 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
     }
     .compact-item {
       display: inline-flex;
-      align-items: baseline;
-      gap: 4px;
+      align-items: center;
+      gap: 6px;
       white-space: nowrap;
     }
-    .compact-item .marker {
-      align-self: center;
+    .compact-item .vm {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 3px;
+      line-height: 24px;
     }
     .compact-item .value {
       font-size: 20px;
@@ -438,4 +837,4 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
     .empty {
       color: var(--secondary-text-color);
     }
-  `,customElements.get("best-number-card")||(customElements.define("best-number-card",Yt),console.info(`%c BEST-NUMBER-CARD %c v${jt} `,"color:#fff;background:#03a9f4;font-weight:700","color:#03a9f4")),window.customCards=window.customCards||[],window.customCards.some(t=>"best-number-card"===t.type)||window.customCards.push({type:"best-number-card",name:"Best Number Card",description:"Sensor card for multiple entities with color scales and efficient history loading.",preview:!0,documentationURL:"https://github.com/zitroaen/bestnumbercard"});export{Yt as BestNumberCard,jt as VERSION};
+  `,customElements.get("best-number-card")||(customElements.define("best-number-card",re),console.info(`%c BEST-NUMBER-CARD %c v${Zt} `,"color:#fff;background:#03a9f4;font-weight:700","color:#03a9f4")),window.customCards=window.customCards||[],window.customCards.some(t=>"best-number-card"===t.type)||window.customCards.push({type:"best-number-card",name:"Best Number Card",description:"Sensor card for multiple entities with color scales and efficient history loading.",preview:!0,documentationURL:"https://github.com/zitroaen/bestnumbercard",getEntitySuggestion:(t,e)=>le(t,e)?{config:{type:"custom:best-number-card",entities:[{entity:e}]}}:null});export{re as BestNumberCard,Zt as VERSION,le as isNumericSensor};

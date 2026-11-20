@@ -51,3 +51,29 @@ test("svg gradient stops contain the jump", () => {
   const st = gradientStops(sortStops([{ value: 0, color: "#00ff00" }, { value: 50, color: "#ff0000" }]), "step", 0, 100, resolve);
   assert.deepEqual(st.map((x) => x.offset), [0, 0.5, 0.5, 1]);
 });
+
+test("time gradient: vertical bands with a jump between two points", async () => {
+  const { timeGradientStops } = await import("../src/color-scale");
+  const s = sortStops([{ value: 0, color: "#00ff00" }, { value: 0, color: "#ff0000" }]);
+  const g = timeGradientStops(s, "gradient", [-1, -1, -1, 1, 1], resolve);
+  assert.deepEqual(g.map((x) => x.offset), [0, 0.625, 0.625, 1]);
+  assert.equal(g[1].color, "rgb(0,255,0)");
+  assert.equal(g[2].color, "rgb(255,0,0)");
+});
+
+test("editor rows: equal values become one row with a jump and back", async () => {
+  const { stopsToRows, rowsToStops, jumpValues } = await import("../src/presets");
+  const stops = [
+    { value: 20, color: "blue" },
+    { value: 95, color: "orange" },
+    { value: 95, color: "darkred" },
+  ];
+  const rows = stopsToRows(stops);
+  assert.deepEqual(rows, [
+    { value: 20, color: "blue" },
+    { value: 95, below: "orange", color: "darkred" },
+  ]);
+  assert.deepEqual(rowsToStops(rows), stops);
+  assert.deepEqual(jumpValues(stops), [95]);
+  assert.deepEqual(jumpValues([{ value: 0, color: "a" }, { value: 10, color: "b" }], "step"), [10]);
+});

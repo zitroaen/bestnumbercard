@@ -134,3 +134,51 @@ export function gradientStops(
   out.push({ offset: 1, color: rgbaToCss(colorAt(stops, mode, hi, resolve)) });
   return out;
 }
+
+/** True if the color changes abruptly somewhere between the values a and b. */
+function hasJump(stops: ColorStop[], mode: ColorScaleMode, a: number, b: number): boolean {
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
+  if (lo === hi) return false;
+  if (mode === "step") return stops.some((s) => s.value > lo && s.value <= hi);
+  for (let k = 0; k + 1 < stops.length; k++) {
+    if (stops[k].value === stops[k + 1].value && stops[k].value > lo && stops[k].value <= hi) return true;
+  }
+  return false;
+}
+
+/**
+ * Horizontal gradient along the time axis: each x position gets the color of the
+ * value at that time (vertical color bands). `values` are equally spaced from 0 to 1.
+ * Hard jumps between two neighbouring points are placed in the middle between them.
+ */
+export function timeGradientStops(
+  stops: ColorStop[],
+  mode: ColorScaleMode,
+  values: ArrayLike<number>,
+  resolve: (c: string) => RGBA,
+): GradientStop[] {
+  const n = values.length;
+  const color = (v: number) => rgbaToCss(colorAt(stops, mode, v, resolve));
+  const out: GradientStop[] = [];
+  let prevV = NaN;
+  let prevOff = 0;
+  for (let i = 0; i < n; i++) {
+    const v = values[i];
+    if (!Number.isFinite(v)) continue;
+    const off = n > 1 ? i / (n - 1) : 0;
+    if (Number.isFinite(prevV) && hasJump(stops, mode, prevV, v)) {
+      const mid = (prevOff + off) / 2;
+      out.push({ offset: mid, color: color(prevV) }, { offset: mid, color: color(v) });
+    }
+    out.push({ offset: off, color: color(v) });
+    prevV = v;
+    prevOff = off;
+  }
+  if (!out.length) {
+    const c = color(NaN);
+    return [{ offset: 0, color: c }, { offset: 1, color: c }];
+  }
+  // drop stops in the middle of runs with the same color (keeps the DOM small)
+  return out.filter((s, k) => k === 0 || k === out.length - 1 || s.color !== out[k - 1].color || s.color !== out[k + 1].color);
+}

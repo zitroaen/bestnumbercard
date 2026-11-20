@@ -20,6 +20,25 @@ jobs:
       - name: Check that dist/ is up to date
         run: git diff --exit-code -- dist/ || (echo "::error::dist/ is outdated – run npm run build and commit" && exit 1)
 
+  version:
+    # Every change to the card needs a new version, otherwise no release (and no HACS update) is created.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check version bump
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if ! git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- src dist package.json; then
+            if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+              echo "::error::v$version is already released. Bump the version in package.json (npm version patch|minor --no-git-tag-version), rebuild and commit."
+              exit 1
+            fi
+          fi
+          echo "Version v$version is not released yet – OK"
+
   hacs:
     runs-on: ubuntu-latest
     steps:

@@ -55,6 +55,7 @@ export interface ColorStop {
   color: string;
 }
 
+export type FillGradient = "value" | "time";
 export type ColorScaleMode = "gradient" | "step";
 export type ValueDisplay = "primary" | "all" | "none";
 export type LegendIcon = "dot" | "icon" | "none";
@@ -74,6 +75,8 @@ export interface EntityConfig {
   min?: number;
   max?: number;
   fill?: boolean;
+  /** Fill coloring with a color scale: `value` = by height (horizontal bands), `time` = by the value at each point in time (vertical bands). */
+  fill_gradient?: FillGradient;
   line_width?: number;
   show_value?: boolean;
   show_graph?: boolean;
@@ -94,12 +97,24 @@ export interface CardConfig {
   hours_to_show?: number;
   height?: number;
   smoothing?: boolean;
+  /** Default `fill_gradient` for all entities. */
+  fill_gradient?: FillGradient;
   value_display?: ValueDisplay;
   legend_icon?: LegendIcon;
   end_labels?: EndLabels;
   tooltip?: boolean;
   /** Start in compact mode (values only, no graph, no history loaded). */
   compact?: boolean;
+  /** Remember a toggled compact state on this device (default true). */
+  remember_compact?: boolean;
+  /** Min/max labels of the y-axis: on hover (default), always or never. */
+  y_axis?: "hover" | "always" | "none";
+  /** Dashed lines at the hard jumps of the color scales. */
+  show_thresholds?: boolean;
+  /** Show min / average / max of the visible window below the values. */
+  show_extrema?: boolean;
+  /** Tap a legend entry to hide/show its line (default true). */
+  legend_toggle?: boolean;
   statistics_threshold?: number;
   statistics_period?: "auto" | "5minute" | "hour" | "day";
   /** Card-wide limits (like `limits` of the sensor card). */
