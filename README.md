@@ -62,6 +62,7 @@ entities:
 | `height` | auto | Graph height in px |
 | `limits` | – | `{min, max}` for all scales (like the sensor card) |
 | `smoothing` | `true` | Smooth curves |
+| `fill_gradient` | `value` | Default for all entities, see `fill_gradient` below |
 | `value_display` | `primary` (1 entity) / `all` | `primary` = like the sensor card, `all` = all values, `none` |
 | `legend_icon` | `dot` | Marker next to the values: `dot`, `icon`, `none` |
 | `end_labels` | `none` | Label at the end of each line: `none`, `value`, `icon`, `icon_value` |
@@ -88,6 +89,7 @@ When the tap action is `more-info`, tapping a value opens that value's entity.
 | `scale` | Scale group. Series with the same name share a y-axis (default: all share one) |
 | `min` / `max` | Fixed limits for this series' scale |
 | `fill` | Fill the area under the line (default: only with a single series) |
+| `fill_gradient` | How the color scale colors the fill: `value` = by height (horizontal color bands), `time` = each point in time gets the color of its value (vertical color bands) |
 | `line_width` | Line width in px |
 | `show_value` / `show_graph` | Show this entity in the header / in the graph |
 | `hide_below` / `hide_above` | Hide the entity completely while its value is below / above this value |
@@ -101,6 +103,8 @@ The stops are sorted by value. The color applies to the line, the fill area, the
 - **step**: each stop's color applies from its value upwards. The first color also applies below the first stop.
 
 Below the first stop and above the last stop, the first and last color are used.
+
+By default the fill area uses the same height-based coloring as the line, which gives horizontal color bands. With `fill_gradient: time`, the fill below the line is colored along the time axis instead, so you can see at a glance *when* a threshold was exceeded.
 
 ## Performance
 
@@ -123,5 +127,4 @@ npm run watch
 
 ### Release
 
-1. Bump `version` in `package.json` and run `npm run build`. Commit the result, including `dist/`.
-2. Create a GitHub release with the tag `vX.Y.Z`. The release workflow attaches `best-number-card.js`, and HACS offers the update.
+Releases are automatic. Bump `version` in `package.json`, run `npm run build` and commit, including `dist/`. When the change lands on `main`, the release workflow creates the GitHub release `vX.Y.Z` with `best-number-card.js` attached, and HACS then offers the update. You can also start the workflow by hand under *Actions → Release → Run workflow*.

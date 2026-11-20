@@ -51,3 +51,12 @@ test("svg gradient stops contain the jump", () => {
   const st = gradientStops(sortStops([{ value: 0, color: "#00ff00" }, { value: 50, color: "#ff0000" }]), "step", 0, 100, resolve);
   assert.deepEqual(st.map((x) => x.offset), [0, 0.5, 0.5, 1]);
 });
+
+test("time gradient: vertical bands with a jump between two points", async () => {
+  const { timeGradientStops } = await import("../src/color-scale");
+  const s = sortStops([{ value: 0, color: "#00ff00" }, { value: 0, color: "#ff0000" }]);
+  const g = timeGradientStops(s, "gradient", [-1, -1, -1, 1, 1], resolve);
+  assert.deepEqual(g.map((x) => x.offset), [0, 0.625, 0.625, 1]);
+  assert.equal(g[1].color, "rgb(0,255,0)");
+  assert.equal(g[2].color, "rgb(255,0,0)");
+});

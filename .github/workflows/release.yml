@@ -1,8 +1,11 @@
 name: Release
 
+# Creates the GitHub release vX.Y.Z (with the card attached) whenever the version
+# in package.json on main has no release yet.
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,10 +19,31 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-      - name: Upload card to the release
+      - name: Read version
+        id: version
+        run: echo "tag=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Check for existing release
+        id: exists
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" dist/best-number-card.js --clobber
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.exists.outputs.found == 'false'
+        run: npm ci
+      - if: steps.exists.outputs.found == 'false'
+        run: npm test
+      - if: steps.exists.outputs.found == 'false'
+        run: npm run build
+      - name: Create release
+        if: steps.exists.outputs.found == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" dist/best-number-card.js \
+            --target "${{ github.sha }}" \
+            --title "Best Number Card ${{ steps.version.outputs.tag }}" \
+            --generate-notes

@@ -55,6 +55,7 @@ export interface ColorStop {
   color: string;
 }
 
+export type FillGradient = "value" | "time";
 export type ColorScaleMode = "gradient" | "step";
 export type ValueDisplay = "primary" | "all" | "none";
 export type LegendIcon = "dot" | "icon" | "none";
@@ -74,6 +75,8 @@ export interface EntityConfig {
   min?: number;
   max?: number;
   fill?: boolean;
+  /** Fill coloring with a color scale: `value` = by height (horizontal bands), `time` = by the value at each point in time (vertical bands). */
+  fill_gradient?: FillGradient;
   line_width?: number;
   show_value?: boolean;
   show_graph?: boolean;
@@ -94,6 +97,8 @@ export interface CardConfig {
   hours_to_show?: number;
   height?: number;
   smoothing?: boolean;
+  /** Default `fill_gradient` for all entities. */
+  fill_gradient?: FillGradient;
   value_display?: ValueDisplay;
   legend_icon?: LegendIcon;
   end_labels?: EndLabels;

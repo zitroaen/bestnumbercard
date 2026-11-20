@@ -51,6 +51,7 @@ const en = {
   "field.min": "Minimum",
   "field.max": "Maximum",
   "field.fill": "Fill area",
+  "field.fill_gradient": "Fill coloring (with color scale)",
   "field.line_width": "Line width",
   "field.show_value": "Show value",
   "field.show_graph": "Show in graph",
@@ -75,6 +76,8 @@ const en = {
   "opt.day": "Day",
   "opt.gradient": "Gradient",
   "opt.step": "Steps",
+  "opt.fill_value": "By value (horizontal color bands)",
+  "opt.fill_time": "Along time (vertical color bands)",
 };
 
 type Key = keyof typeof en;
@@ -126,6 +129,7 @@ const de: Partial<Record<Key, string>> = {
   "field.min": "Minimum",
   "field.max": "Maximum",
   "field.fill": "Fläche füllen",
+  "field.fill_gradient": "Färbung der Füllung (mit Farbskala)",
   "field.line_width": "Linienstärke",
   "field.show_value": "Wert anzeigen",
   "field.show_graph": "Im Diagramm anzeigen",
@@ -149,6 +153,8 @@ const de: Partial<Record<Key, string>> = {
   "opt.day": "Tag",
   "opt.gradient": "Verlauf",
   "opt.step": "Stufen",
+  "opt.fill_value": "Nach Wert (horizontale Farbbänder)",
+  "opt.fill_time": "Entlang der Zeit (vertikale Farbbänder)",
 };
 
 const LANGS: Record<string, Partial<Record<Key, string>>> = { en, de };

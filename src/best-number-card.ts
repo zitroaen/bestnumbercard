@@ -1,7 +1,7 @@
 import { LitElement, html, svg, css, nothing, type PropertyValues, type TemplateResult } from "lit";
 import pkg from "../package.json";
 import { runAction } from "./actions";
-import { colorAt, gradientStops, parseColor, rgbaToCss, sortStops, type GradientStop } from "./color-scale";
+import { colorAt, gradientStops, timeGradientStops, parseColor, rgbaToCss, sortStops, type GradientStop } from "./color-scale";
 import { DataSource } from "./data";
 import { aggregate, dataRange, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
 import { formatNumber, formatTime, localize } from "./localize";
@@ -37,6 +37,9 @@ interface SeriesModel {
   y: (v: number) => number;
   gradId?: string;
   grad?: GradientStop[];
+  /** separate horizontal gradient for the fill area (fill_gradient: time) */
+  fillGradId?: string;
+  fillGrad?: GradientStop[];
   color: string;
   lineWidth: number;
   fill: boolean;
@@ -410,7 +413,12 @@ export class BestNumberCard extends LitElement {
       };
       if (e.color_scale?.length) {
         m.gradId = `${this._uid}-g${index}`;
-        m.grad = gradientStops(e.color_scale, e.color_scale_mode ?? "gradient", lo, hi, this._resolve);
+        const mode = e.color_scale_mode ?? "gradient";
+        m.grad = gradientStops(e.color_scale, mode, lo, hi, this._resolve);
+        if (m.fill && (e.fill_gradient ?? cfg.fill_gradient) === "time") {
+          m.fillGradId = `${this._uid}-f${index}`;
+          m.fillGrad = timeGradientStops(e.color_scale, mode, b.mean, this._resolve);
+        }
       }
       return m;
     });
@@ -621,12 +629,20 @@ export class BestNumberCard extends LitElement {
               </linearGradient>`
             : nothing,
         )}
+        ${m.series.map((s) =>
+          s.fillGradId
+            ? svg`<linearGradient id=${s.fillGradId} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">
+                ${s.fillGrad!.map((g) => svg`<stop offset=${g.offset} stop-color=${g.color}></stop>`)}
+              </linearGradient>`
+            : nothing,
+        )}
       </defs>
       ${m.series.map((s) => {
         const paint = s.gradId ? `url(#${s.gradId})` : s.color;
+        const fillPaint = s.fillGradId ? `url(#${s.fillGradId})` : paint;
         return svg`<g>
           ${s.fill
-            ? s.segs.map((seg) => svg`<path class="fill" d=${fillPath(seg, smooth, m.height)} style="fill:${paint}"></path>`)
+            ? s.segs.map((seg) => svg`<path class="fill" d=${fillPath(seg, smooth, m.height)} style="fill:${fillPaint}"></path>`)
             : nothing}
           ${s.segs.map(
             (seg) =>

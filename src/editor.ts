@@ -97,6 +97,7 @@ export class BestNumberCardEditor extends LitElement {
             { name: "limits_max", selector: num },
           ] },
           { name: "end_labels", selector: select(h, ["none", "value", "icon", "icon_value"]) },
+          { name: "fill_gradient", selector: select(h, ["value", "time"], "opt.fill_") },
           { type: "grid", name: "", schema: [
             { name: "smoothing", selector: { boolean: {} } },
             { name: "tooltip", selector: { boolean: {} } },
@@ -140,6 +141,7 @@ export class BestNumberCardEditor extends LitElement {
       statistics_period: "auto",
       end_labels: "none",
       legend_icon: "dot",
+      fill_gradient: "value",
       value_display: this._config!.entities.length === 1 ? "primary" : "all",
     };
   }
@@ -188,6 +190,7 @@ export class BestNumberCardEditor extends LitElement {
         { name: "line_width", selector: { number: { mode: "box", min: 0.5, max: 12, step: 0.5 } } },
         { name: "scale", selector: { text: {} } },
         { name: "color_scale_mode", selector: select(h, ["gradient", "step"]) },
+        { name: "fill_gradient", selector: select(h, ["value", "time"], "opt.fill_") },
         { name: "min", selector: num },
         { name: "max", selector: num },
       ] },
