@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/zitroaen/bestnumbercard/main/docs/icon.png" width="128" alt="Best Number Card icon"></p>
+
 # Best Number Card
 
 A Home Assistant dashboard card that looks and behaves like the built-in **sensor card**, with these additions:
