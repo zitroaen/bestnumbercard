@@ -3,17 +3,18 @@ import type { HomeAssistant, SeriesData } from "./types";
 /**
  * Data loading strategy (designed to keep the load on Home Assistant minimal):
  *
- *  - Short windows (<= statistics_threshold): ONE `history/stream` subscription
- *    for all entities (minimal_response, no_attributes). HA sends the history once
- *    and afterwards only pushes new state changes – no polling.
+ *  - Short windows (<= statistics_threshold): `history/stream` subscriptions
+ *    (minimal_response, no_attributes, significant changes only). HA sends the history
+ *    once and afterwards only pushes new state changes – no polling.
  *  - Long windows: pre-aggregated long-term statistics (5 min / hour / day) via
  *    ONE `recorder/statistics_during_period` call, plus a `history/stream`
  *    subscription only for the short tail after the last statistics bucket.
  *    Entities without statistics (no state_class) fall back to raw history.
- *  - Everything is kept in an in-memory cache (per browser tab, per card setup).
- *    Switching dashboard views re-uses it and only fetches the gap since the card
- *    was last visible. A page reload simply starts fresh – nothing ever has to be
- *    cleared manually.
+ *  - Data lives in an in-memory store per entity (and time window). Cards showing the
+ *    same entity share the store AND the live subscription. Switching dashboard views
+ *    only fetches the gap since the card was last visible; after a lost connection only
+ *    the gap is fetched as well. A page reload simply starts fresh – nothing ever has to
+ *    be cleared manually.
  */
 
 export type StatPeriod = "5minute" | "hour" | "day";
@@ -24,6 +25,9 @@ const PERIOD_MS: Record<StatPeriod, number> = {
   day: 86_400_000,
 };
 
+/** How often old points are dropped from the stores (keeps memory flat on wall tablets). */
+const MAINTENANCE_MS = 10 * 60_000;
+
 export function choosePeriod(hours: number, configured?: string): StatPeriod {
   if (configured === "5minute" || configured === "hour" || configured === "day") return configured;
   if (hours <= 72) return "5minute";
@@ -31,7 +35,7 @@ export function choosePeriod(hours: number, configured?: string): StatPeriod {
   return "day";
 }
 
-class EntityStore {
+export class EntityStore {
   statT: number[] = [];
   statV: number[] = [];
   statsEnd = NaN; // end of the last statistics bucket
@@ -42,7 +46,17 @@ class EntityStore {
   /** … up to this time (NaN while a live subscription is running) */
   rawUntil = NaN;
   statsLoaded = false;
+  statsLoading?: Promise<void>;
+  /** the first history message of the current subscription has arrived (or it failed) */
+  rawLoaded = false;
   version = 0;
+  lastUsed = 0;
+  /** data sources showing this store */
+  readonly subscribers = new Set<DataSource>();
+  /** the data source that holds the live subscription for this store */
+  owner?: DataSource;
+  /** the owner's subscription is currently active */
+  live = false;
   private memo?: { version: number; data: SeriesData };
 
   appendRaw(t: number, v: number): boolean {
@@ -66,7 +80,7 @@ class EntityStore {
   /** Drop everything older than `from`, but keep one point before it (carry-forward). */
   prune(from: number): void {
     const cut = (t: number[], v: number[]) => {
-      let i = lowerBound(t, from) - 1;
+      const i = lowerBound(t, from) - 1;
       if (i > 0) {
         t.splice(0, i);
         v.splice(0, i);
@@ -84,33 +98,46 @@ class EntityStore {
     if (!this.statT.length) data = { t: this.rawT, v: this.rawV };
     else if (!this.rawT.length) data = { t: this.statT, v: this.statV };
     else {
+      // statistics buckets that start before the raw data begins, raw data from there on
       const k = Number.isFinite(this.rawFrom) ? lowerBound(this.statT, this.rawFrom) : this.statT.length;
-      const r = lowerBound(this.rawT, k ? this.statT[k - 1] + 1 : -Infinity);
+      const rawStart = k ? lowerBound(this.rawT, Number.isFinite(this.rawFrom) ? this.rawFrom : this.statT[k - 1] + 1) : 0;
       data = {
-        t: this.statT.slice(0, k).concat(this.rawT.slice(r)),
-        v: this.statV.slice(0, k).concat(this.rawV.slice(r)),
+        t: this.statT.slice(0, k).concat(this.rawT.slice(rawStart)),
+        v: this.statV.slice(0, k).concat(this.rawV.slice(rawStart)),
       };
     }
     this.memo = { version: this.version, data };
     return data;
   }
+
+  /** Tell every card that shows this store that the data changed. */
+  notifySubscribers(): void {
+    for (const ds of this.subscribers) ds.notify();
+  }
 }
 
-const CACHE = new Map<string, EntityStore & { lastUsed?: number }>();
+const CACHE = new Map<string, EntityStore>();
 const MAX_CACHE_ENTRIES = 60;
 
-function getStore(key: string): EntityStore {
+export function getStore(key: string): EntityStore {
   let store = CACHE.get(key);
   if (!store) {
     store = new EntityStore();
     CACHE.set(key, store);
     if (CACHE.size > MAX_CACHE_ENTRIES) {
-      const oldest = [...CACHE.entries()].sort((a, b) => (a[1].lastUsed ?? 0) - (b[1].lastUsed ?? 0))[0];
-      CACHE.delete(oldest[0]);
+      // evict the least recently used store that no card is showing right now
+      const candidates = [...CACHE.entries()].filter(([, s]) => !s.subscribers.size);
+      const oldest = candidates.sort((a, b) => a[1].lastUsed - b[1].lastUsed)[0];
+      if (oldest) CACHE.delete(oldest[0]);
     }
   }
   store.lastUsed = Date.now();
   return store;
+}
+
+/** Only for tests. */
+export function clearCache(): void {
+  CACHE.clear();
 }
 
 export function lowerBound(arr: number[], x: number): number {
@@ -133,8 +160,10 @@ const toNumber = (s: unknown): number => {
 
 const toMs = (x: unknown): number => (typeof x === "number" ? (x < 1e11 ? x * 1000 : x) : Date.parse(String(x)));
 
+const floorMinute = (t: number) => Math.floor(t / 60_000) * 60_000;
+
 interface StreamMessage {
-  states?: Record<string, { s: string; lu: number; lc?: number }[]>;
+  states?: Record<string, { s: string; lu?: number; lc?: number }[]>;
 }
 
 interface StatRow {
@@ -157,13 +186,12 @@ export class DataSource {
   readonly useStatistics: boolean;
   readonly period: StatPeriod;
   private stores = new Map<string, EntityStore>();
-  private unsubs: Array<() => Promise<void>> = [];
-  private timer?: number;
+  private subs: Array<{ entities: string[]; unsub?: () => Promise<void> }> = [];
+  private timers: number[] = [];
   private disposed = false;
   private changeScheduled = false;
-  private pendingGroups = 0;
-  /** true once statistics and the first history message of every subscription arrived */
-  loaded = false;
+  private wasDisconnected = false;
+  private conn?: HomeAssistant["connection"];
 
   constructor(private hass: HomeAssistant, private opts: DataSourceOptions) {
     this.entities = [...new Set(opts.entities)];
@@ -177,6 +205,15 @@ export class DataSource {
     return Date.now() - this.opts.hoursToShow * 3_600_000;
   }
 
+  /** true once statistics and the first history message for every entity are there */
+  get loaded(): boolean {
+    for (const s of this.stores.values()) {
+      if (this.useStatistics && !s.statsLoaded) return false;
+      if (!s.rawLoaded) return false;
+    }
+    return true;
+  }
+
   setHass(hass: HomeAssistant): void {
     this.hass = hass;
   }
@@ -185,27 +222,57 @@ export class DataSource {
     return this.stores.get(entity)?.series();
   }
 
-  version(): number {
-    let v = 0;
-    for (const s of this.stores.values()) v += s.version;
-    return v;
-  }
-
   async start(): Promise<void> {
     const windowStart = this.windowStart;
-    for (const s of this.stores.values()) s.prune(windowStart);
+    for (const s of this.stores.values()) {
+      s.subscribers.add(this);
+      s.prune(windowStart);
+    }
+    this.listenToConnection();
 
     if (this.useStatistics) {
-      const missing = this.entities.filter((e) => !this.stores.get(e)!.statsLoaded);
+      const waits: Promise<void>[] = [];
+      const missing: string[] = [];
+      for (const e of this.entities) {
+        const s = this.stores.get(e)!;
+        if (s.statsLoaded) continue;
+        if (s.statsLoading) waits.push(s.statsLoading);
+        else missing.push(e);
+      }
       if (missing.length) {
-        await this.loadStatistics(missing, windowStart);
+        const p = this.loadStatistics(missing, windowStart);
+        for (const e of missing) this.stores.get(e)!.statsLoading = p;
+        waits.push(p);
+      }
+      if (waits.length) {
+        await Promise.all(waits);
         if (this.disposed) return;
       }
     }
 
-    // group entities by the time from which raw history is needed
+    // take over every store that has no live subscription yet; others are shared
+    const own = this.entities.filter((e) => {
+      const s = this.stores.get(e)!;
+      if (s.owner && s.owner !== this && !s.owner.isDisposed) return false;
+      if (s.owner === this && s.live) return false; // already adopted while we were starting
+      s.owner = this;
+      return true;
+    });
+    this.subscribeGrouped(own, windowStart);
+
+    // periodically drop old points, and replace the growing raw tail by fresh statistics
+    this.timers.push(window.setInterval(() => this.maintain(), MAINTENANCE_MS));
+    if (this.useStatistics) {
+      const every = Math.max(PERIOD_MS[this.period], 15 * 60_000);
+      this.timers.push(window.setInterval(() => this.compact(), every));
+    }
+    this.notify();
+  }
+
+  /** Subscribe the given (owned) entities, grouped by the time from which data is missing. */
+  private subscribeGrouped(entities: string[], windowStart = this.windowStart): void {
     const groups = new Map<number, string[]>();
-    for (const e of this.entities) {
+    for (const e of entities) {
       const s = this.stores.get(e)!;
       let from: number;
       if (s.rawT.length || Number.isFinite(s.rawUntil)) {
@@ -215,73 +282,116 @@ export class DataSource {
         from = Number.isFinite(s.statsEnd) ? s.statsEnd : windowStart;
         s.rawFrom = from;
       }
-      from = Math.max(from, windowStart);
       // round down to the minute so that cards started at the same time share groups
-      from = Math.floor(from / 60_000) * 60_000;
+      from = floorMinute(Math.max(from, windowStart));
       const g = groups.get(from) ?? [];
       g.push(e);
       groups.set(from, g);
     }
-    this.pendingGroups = groups.size;
-    if (!groups.size) this.loaded = true;
     for (const [from, ents] of groups) this.subscribe(from, ents);
-
-    if (this.useStatistics) {
-      // periodically replace the growing raw tail by fresh statistics
-      const every = Math.max(PERIOD_MS[this.period], 15 * 60_000);
-      this.timer = window.setInterval(() => this.compact(), every);
-    }
-    this.notify();
   }
 
   private subscribe(from: number, entityIds: string[]): void {
+    const sub: { entities: string[]; unsub?: () => Promise<void> } = { entities: entityIds };
+    this.subs.push(sub);
     let first = true;
-    const p = this.hass.connection.subscribeMessage<StreamMessage>((msg) => {
-      if (first) {
-        first = false;
-        if (--this.pendingGroups <= 0) {
-          this.loaded = true;
-          this.notify();
-        }
+    for (const e of entityIds) {
+      const s = this.stores.get(e)!;
+      s.rawUntil = NaN;
+      s.live = true;
+      s.rawLoaded = s.rawLoaded && s.rawT.length > 0;
+    }
+    const markLoaded = () => {
+      if (!first) return;
+      first = false;
+      for (const e of entityIds) {
+        const s = this.stores.get(e)!;
+        s.rawLoaded = true;
+        s.notifySubscribers();
       }
-      this.onStream(msg);
-    }, {
-      type: "history/stream",
-      entity_ids: entityIds,
-      start_time: new Date(from).toISOString(),
-      minimal_response: true,
-      no_attributes: true,
-      significant_changes_only: false,
-    });
-    p.then(
-      (unsub) => {
-        if (this.disposed) unsub().catch(() => undefined);
-        else this.unsubs.push(unsub);
-      },
-      (err) => {
-        console.warn("best-number-card: history subscription failed", err);
-        if (--this.pendingGroups <= 0) {
-          this.loaded = true;
-          this.notify();
-        }
-      },
-    );
-    for (const e of entityIds) this.stores.get(e)!.rawUntil = NaN;
+    };
+    this.hass.connection
+      .subscribeMessage<StreamMessage>(
+        (msg) => {
+          markLoaded();
+          this.onStream(msg);
+        },
+        {
+          type: "history/stream",
+          entity_ids: entityIds,
+          start_time: new Date(from).toISOString(),
+          minimal_response: true,
+          no_attributes: true,
+          // only real state changes – attribute-only updates are filtered out by HA already
+          significant_changes_only: true,
+        },
+        // we resubscribe ourselves after a reconnect, asking only for the gap
+        { resubscribe: false },
+      )
+      .then(
+        (unsub) => {
+          if (this.disposed || !this.subs.includes(sub)) unsub().catch(() => undefined);
+          else sub.unsub = unsub;
+        },
+        (err) => {
+          console.warn("best-number-card: history subscription failed", err);
+          for (const e of entityIds) this.stores.get(e)!.live = false;
+          markLoaded();
+        },
+      );
   }
 
   private onStream(msg: StreamMessage): void {
     if (!msg?.states) return;
-    let changed = false;
     for (const [eid, states] of Object.entries(msg.states)) {
       const store = this.stores.get(eid);
       if (!store) continue;
+      let changed = false;
       for (const st of states) {
         const t = toMs(st.lu ?? st.lc);
         if (Number.isFinite(t)) changed = store.appendRaw(t, toNumber(st.s)) || changed;
       }
+      if (changed) store.notifySubscribers();
     }
-    if (changed) this.notify();
   }
+
+  // ------------------------------------------------------------- connection handling
+
+  private onDisconnected = () => {
+    this.wasDisconnected = true;
+    const now = Date.now();
+    for (const s of this.stores.values()) {
+      if (s.owner !== this) continue;
+      s.live = false;
+      if (!Number.isFinite(s.rawUntil)) s.rawUntil = now;
+    }
+    // the subscriptions are gone with the connection
+    this.subs = [];
+  };
+
+  private onReady = () => {
+    if (!this.wasDisconnected || this.disposed) return;
+    this.wasDisconnected = false;
+    this.subscribeGrouped(this.entities.filter((e) => this.stores.get(e)!.owner === this && !this.stores.get(e)!.live));
+  };
+
+  private listenToConnection(): void {
+    const conn = this.hass.connection;
+    if (typeof conn?.addEventListener !== "function") return;
+    this.conn = conn;
+    conn.addEventListener("disconnected", this.onDisconnected);
+    conn.addEventListener("ready", this.onReady);
+  }
+
+  /** Another card that held the live subscription for this entity went away – take over. */
+  adopt(entity: string): void {
+    const s = this.stores.get(entity);
+    if (this.disposed || !s || (s.owner && !s.owner.isDisposed)) return;
+    s.owner = this;
+    this.subscribeGrouped([entity]);
+  }
+
+  // ------------------------------------------------------------- statistics
 
   private async fetchStatistics(ids: string[], start: number): Promise<Record<string, StatRow[]>> {
     return this.hass.callWS<Record<string, StatRow[]>>({
@@ -298,19 +408,20 @@ export class DataSource {
     const start = Math.floor(windowStart / PERIOD_MS[this.period]) * PERIOD_MS[this.period];
     let result: Record<string, StatRow[]> = {};
     try {
-      result = await this.fetchStatistics(ids, start);
+      result = (await this.fetchStatistics(ids, start)) ?? {};
     } catch (err) {
       console.warn("best-number-card: statistics unavailable, using history", err);
     }
     for (const e of ids) {
-      this.applyStats(e, result[e]);
-      this.stores.get(e)!.statsLoaded = true;
+      const s = this.stores.get(e)!;
+      this.applyStats(s, result[e]);
+      s.statsLoaded = true;
+      s.statsLoading = undefined;
     }
   }
 
-  private applyStats(entity: string, rows: StatRow[] | undefined): void {
-    const s = this.stores.get(entity);
-    if (!s || !rows?.length) return;
+  private applyStats(s: EntityStore, rows: StatRow[] | undefined): void {
+    if (!rows?.length) return;
     const len = PERIOD_MS[this.period];
     for (const row of rows) {
       const t = toMs(row.start);
@@ -326,19 +437,23 @@ export class DataSource {
 
   /** Fetch only the new statistics buckets and drop the raw points they cover. */
   private async compact(): Promise<void> {
-    const ids = this.entities.filter((e) => Number.isFinite(this.stores.get(e)!.statsEnd));
+    // only the owner compacts, so a shared store is not fetched twice
+    const ids = this.entities.filter((e) => {
+      const s = this.stores.get(e)!;
+      return s.owner === this && Number.isFinite(s.statsEnd);
+    });
     if (!ids.length || document.visibilityState === "hidden") return;
     const from = Math.min(...ids.map((e) => this.stores.get(e)!.statsEnd));
     let result: Record<string, StatRow[]>;
     try {
-      result = await this.fetchStatistics(ids, from);
+      result = (await this.fetchStatistics(ids, from)) ?? {};
     } catch {
       return;
     }
     if (this.disposed) return;
     for (const e of ids) {
       const s = this.stores.get(e)!;
-      this.applyStats(e, result[e]);
+      this.applyStats(s, result[e]);
       // keep raw data after the statistics; one point before as carry-forward
       const cut = lowerBound(s.rawT, s.statsEnd) - 1;
       if (cut > 0) {
@@ -348,11 +463,17 @@ export class DataSource {
       s.rawFrom = s.statsEnd;
       s.prune(this.windowStart);
       s.version++;
+      s.notifySubscribers();
     }
-    this.notify();
   }
 
-  private notify(): void {
+  /** Drop points that scrolled out of the window – memory stays flat even after days. */
+  maintain(): void {
+    const from = this.windowStart;
+    for (const s of this.stores.values()) if (s.owner === this) s.prune(from);
+  }
+
+  notify(): void {
     if (this.changeScheduled || this.disposed) return;
     this.changeScheduled = true;
     queueMicrotask(() => {
@@ -364,10 +485,30 @@ export class DataSource {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    if (this.timer) clearInterval(this.timer);
+    for (const t of this.timers) clearInterval(t);
+    this.timers = [];
+    if (this.conn?.removeEventListener) {
+      this.conn.removeEventListener("disconnected", this.onDisconnected);
+      this.conn.removeEventListener("ready", this.onReady);
+    }
     const now = Date.now();
-    for (const s of this.stores.values()) if (!Number.isFinite(s.rawUntil)) s.rawUntil = now;
-    for (const u of this.unsubs) u().catch(() => undefined);
-    this.unsubs = [];
+    const handOver: Array<[string, EntityStore]> = [];
+    for (const [e, s] of this.stores) {
+      s.subscribers.delete(this);
+      if (s.owner !== this) continue;
+      s.owner = undefined;
+      s.live = false;
+      if (!Number.isFinite(s.rawUntil)) s.rawUntil = now;
+      if (s.subscribers.size) handOver.push([e, s]);
+    }
+    for (const sub of this.subs) sub.unsub?.().catch(() => undefined);
+    this.subs = [];
+    // other cards still show these entities: one of them continues the live subscription
+    for (const [e, s] of handOver) [...s.subscribers][0]?.adopt(e);
+  }
+
+  /** @internal */
+  get isDisposed(): boolean {
+    return this.disposed;
   }
 }

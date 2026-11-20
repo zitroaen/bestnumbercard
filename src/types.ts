@@ -27,7 +27,10 @@ export interface HomeAssistant {
     subscribeMessage<T>(
       callback: (msg: T) => void,
       msg: Record<string, any>,
+      options?: { resubscribe?: boolean },
     ): Promise<() => Promise<void>>;
+    addEventListener?(event: "ready" | "disconnected" | "reconnect-error", cb: () => void): void;
+    removeEventListener?(event: "ready" | "disconnected" | "reconnect-error", cb: () => void): void;
   };
   callWS<T>(msg: Record<string, any>): Promise<T>;
   callService(domain: string, service: string, data?: Record<string, any>, target?: Record<string, any>): Promise<any>;

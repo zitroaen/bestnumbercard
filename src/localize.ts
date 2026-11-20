@@ -290,14 +290,22 @@ export function formatNumber(hass: HomeAssistant | undefined, value: number, dec
   return f.format(value);
 }
 
+const timeFmtCache = new Map<string, Intl.DateTimeFormat>();
+
 export function formatTime(hass: HomeAssistant | undefined, ts: number, withDate: boolean): string {
   const lang = hass?.locale?.language ?? hass?.language ?? "en";
   const tf = hass?.locale?.time_format;
-  const hour12 = tf === "12" ? true : tf === "24" ? false : undefined;
-  return new Intl.DateTimeFormat(lang, {
-    ...(withDate ? { day: "2-digit", month: "2-digit" } : {}),
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12,
-  }).format(ts);
+  const key = `${lang}|${tf}|${withDate}`;
+  let f = timeFmtCache.get(key);
+  if (!f) {
+    const hour12 = tf === "12" ? true : tf === "24" ? false : undefined;
+    f = new Intl.DateTimeFormat(lang, {
+      ...(withDate ? { day: "2-digit", month: "2-digit" } : {}),
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12,
+    });
+    timeFmtCache.set(key, f);
+  }
+  return f.format(ts);
 }

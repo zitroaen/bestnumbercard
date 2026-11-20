@@ -1,7 +1,7 @@
 import { LitElement, html, svg, css, nothing, type PropertyValues, type TemplateResult } from "lit";
 import pkg from "../package.json";
 import { runAction } from "./actions";
-import { colorAt, gradientStops, timeGradientStops, parseColor, rgbaToCss, sortStops, type GradientStop } from "./color-scale";
+import { colorAt, gradientStops, timeGradientStops, parseColor, rgbaToCss, sortStops, type GradientStop, type RGBA } from "./color-scale";
 import { DataSource } from "./data";
 import { aggregate, dataRange, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
 import { formatNumber, formatTime, localize } from "./localize";
@@ -140,7 +140,16 @@ export class BestNumberCard extends LitElement {
   private _suppressClick = false;
   private _hideTimer?: number;
   private _storageKey = "";
-  private _resolve = (c: string) => parseColor(c, this);
+  private _colorCache = new Map<string, RGBA>();
+  private _resolve = (c: string): RGBA => {
+    let v = this._colorCache.get(c);
+    if (!v) {
+      v = parseColor(c, this);
+      this._colorCache.set(c, v);
+    }
+    return v;
+  };
+  private _themeVars: string[] = [];
 
   // ---------------------------------------------------------------- HA API
 
@@ -187,11 +196,13 @@ export class BestNumberCard extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    document.addEventListener("visibilitychange", this._onVisibility);
     this._syncDataSource();
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    document.removeEventListener("visibilitychange", this._onVisibility);
     this._disposeDataSource();
     this._ro?.disconnect();
     this._ro = undefined;
@@ -211,7 +222,13 @@ export class BestNumberCard extends LitElement {
 
   protected willUpdate(changed: PropertyValues): void {
     if (changed.has("hass") || changed.has("_config") || changed.has("_compact")) this._syncDataSource();
-    if (this.hass && this._config?.theme && (changed.has("_config") || changed.has("hass"))) this._applyTheme();
+    const old = changed.get("hass") as HomeAssistant | undefined;
+    const themeChanged = changed.has("_config") || !old || old.themes !== this.hass?.themes;
+    if (themeChanged) {
+      this._applyTheme();
+      this._colorCache.clear();
+      this._model = undefined;
+    }
   }
 
   protected updated(): void {
@@ -292,9 +309,14 @@ export class BestNumberCard extends LitElement {
     this._tickTimer = undefined;
   }
 
+  private _onVisibility = () => {
+    if (document.visibilityState === "visible" && this._ds) this._scheduleTick();
+  };
+
   /** Throttled graph refresh: dense data must not cause a re-render for every single value. */
   private _scheduleTick(): void {
-    if (this._tickTimer !== undefined) return;
+    // nothing to draw in a background tab – catch up when it becomes visible again
+    if (this._tickTimer !== undefined || document.visibilityState === "hidden") return;
     const now = Date.now();
     const bucketMs = (this._hours * 3_600_000) / Math.max(this._width || 400, 100);
     const minInterval = now - this._dsStarted < 5_000 ? 100 : Math.min(Math.max(bucketMs, 1_000), 30_000);
@@ -365,10 +387,17 @@ export class BestNumberCard extends LitElement {
   }
 
   private _applyTheme(): void {
-    const theme = this.hass?.themes?.themes?.[this._config!.theme!];
+    for (const k of this._themeVars) this.style.removeProperty(k);
+    this._themeVars = [];
+    const themes = this.hass?.themes;
+    const theme: Record<string, any> | undefined = this._config?.theme ? themes?.themes?.[this._config.theme] : undefined;
     if (!theme) return;
-    for (const [k, v] of Object.entries(theme)) {
-      if (typeof v === "string") this.style.setProperty(`--${k}`, v);
+    const mode = (theme as any).modes?.[themes?.darkMode ? "dark" : "light"] ?? {};
+    for (const [k, v] of Object.entries({ ...theme, ...mode })) {
+      if (typeof v !== "string") continue;
+      const name = `--${k}`;
+      this.style.setProperty(name, v);
+      this._themeVars.push(name);
     }
   }
 

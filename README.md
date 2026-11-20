@@ -169,9 +169,11 @@ The glow is a layer above the card whose opacity is animated. Browsers run this 
 
 The card is built to put as little load as possible on Home Assistant and the browser:
 
-- **Windows up to `statistics_threshold` (6 h):** a single `history/stream` subscription for all entities, with `minimal_response` and `no_attributes`. Home Assistant sends the history once and then only pushes new values. There is no polling.
+- **Windows up to `statistics_threshold` (6 h):** a single `history/stream` subscription for all entities, with `minimal_response`, `no_attributes` and `significant_changes_only`. Home Assistant sends the history once and then only pushes new values. Updates that only change attributes are filtered out on the server. There is no polling.
 - **Longer windows:** the card uses Home Assistant's **pre-aggregated long-term statistics** (5 min / hourly / daily), fetched in one request. Raw history is only streamed for the few minutes after the last statistics bucket. Entities without statistics (no `state_class`) automatically fall back to raw history.
-- **In-memory cache per entity:** when you switch dashboard views or open the same entity in several cards, nothing is fetched twice. Only the gap since the card was last visible is loaded. The cache lives only in the open browser tab, so it can never become stale across updates.
+- **In-memory cache per entity:** when you switch dashboard views or open the same entity in several cards, nothing is fetched twice. Cards that show the same entity also **share one live subscription** and one statistics request. Only the gap since the card was last visible is loaded. The cache lives only in the open browser tab, so it can never become stale across updates.
+- **Reconnects:** when the connection to Home Assistant drops, for example when a tablet wakes up, only the missing gap is requested again instead of the whole time range.
+- **Long-running dashboards:** points that scrolled out of the time range are dropped regularly, so memory stays flat even after days. In a background tab the graph is not redrawn at all.
 - **Rendering:** data is aggregated to about one point per pixel in O(n), with time-weighted means and no lost peaks in `detail: 2`. Redraws are throttled to the time span one pixel represents, so even very dense sensors do not cause constant redraws. Header values update immediately.
 - Hidden entities and cards in compact mode do not load any history.
 - The editor warns you when a sensor has no long-term statistics, because long time ranges then have to load the raw history.
