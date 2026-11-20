@@ -169,4 +169,4 @@ npm run watch
 
 ### Release
 
-Releases are automatic. Bump `version` in `package.json`, run `npm run build` and commit, including `dist/`. When the change lands on `main`, the release workflow creates the GitHub release `vX.Y.Z` with `best-number-card.js` attached, and HACS then offers the update. You can also start the workflow by hand under *Actions → Release → Run workflow*.
+Releases are automatic. Every change to the card needs a new version (patch for fixes, minor for features), and a CI check enforces this. Bump `version` in `package.json`, run `npm run build` and commit, including `dist/`. When the change lands on `main`, the release workflow creates the GitHub release `vX.Y.Z` with `best-number-card.js` attached, and HACS then offers the update. You can also start the workflow by hand under *Actions → Release → Run workflow*.
