@@ -594,8 +594,10 @@ export class BestNumberCard extends LitElement {
           ? items.map(
               (e) => html`<span class="compact-item" data-entity=${e.entity} title=${this._name(e)}>
                 ${items.length > 1 || cfg.legend_icon === "icon" ? this._renderMarker(e) : nothing}
-                <span class="value" style=${this._valueStyle(e)}>${this._formatState(e)}</span>
-                <span class="measurement">${this._unit(e)}</span>
+                <span class="vm">
+                  <span class="value" style=${this._valueStyle(e)}>${this._formatState(e)}</span>
+                  <span class="measurement">${this._unit(e)}</span>
+                </span>
               </span>`,
             )
           : html`<span class="empty">${localize(this.hass, "card.all_hidden")}</span>`}
@@ -803,8 +805,13 @@ export class BestNumberCard extends LitElement {
       border-radius: 50%;
     }
     .marker.icon {
-      --mdc-icon-size: 16px;
+      --mdc-icon-size: 18px;
       display: inline-flex;
+      align-items: center;
+      line-height: 0;
+    }
+    .marker.icon ha-state-icon {
+      display: flex;
     }
     .graph {
       position: relative;
@@ -905,12 +912,15 @@ export class BestNumberCard extends LitElement {
     }
     .compact-item {
       display: inline-flex;
-      align-items: baseline;
-      gap: 4px;
+      align-items: center;
+      gap: 6px;
       white-space: nowrap;
     }
-    .compact-item .marker {
-      align-self: center;
+    .compact-item .vm {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 3px;
+      line-height: 24px;
     }
     .compact-item .value {
       font-size: 20px;
