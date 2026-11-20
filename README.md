@@ -12,10 +12,11 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 - **Labels at the end of each line** (current value and/or icon) that move with the latest value
 - **Min / average / max** of the visible time range, without any extra query
 - **Tap a legend entry** to temporarily hide its line
+- **Alert glow**: the whole card glows, pulses or blinks while a value reaches its alert threshold.
 - **Hide entities depending on their value**. A hidden entity is not shown and its history is not loaded at all.
 - **Compact mode**: values only, minimal height, no history loaded. It can be the default, or you can toggle it by tapping the card. The toggled state is remembered on each device.
 - **Tooltip** on hover, and on phones by **swiping across the graph**
-- **Visual editor** in English and German, with color scale preview, presets, drag & drop sorting, warnings and performance hints. The language follows your Home Assistant language.
+- **Visual editor** in English and German, with a color picker (theme colors + custom color), color scale preview, presets, drag & drop sorting, warnings and performance hints. The language follows your Home Assistant language.
 - **Very light on your system**, even for long windows of dense data (see [Performance](#performance))
 - Shows up in Home Assistant's **card suggestions** when you add a card for a numeric sensor (HA 2026.6 or newer)
 
@@ -38,6 +39,7 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 | Min / avg / max of the time range | – | ✓ `show_extrema` |
 | Hide a line by tapping the legend | – | ✓ |
 | Hide entities depending on their value | – | ✓ and their history is not loaded |
+| Alert: card glows / blinks at a threshold | – | ✓ `alert_above` / `alert_below` |
 | Compact mode (values only) | – | ✓ default or tap to toggle, remembered per device |
 | Tap / hold / double-tap actions | more info on tap | ✓ all standard actions, plus `toggle-compact` |
 | Loading of long time ranges | raw history | **long-term statistics** + short raw tail |
@@ -109,6 +111,8 @@ entities:
 | `remember_compact` | `true` | Remember a compact mode toggled by tapping, per device |
 | `statistics_threshold` | `6` | Use long-term statistics if `hours_to_show` is larger than this |
 | `statistics_period` | `auto` | `auto`, `5minute`, `hour`, `day` |
+| `alert_style` | `glow` | Effect while an entity is in alert: `glow` (pulsing), `blink`, `static` (steady glow) |
+| `alert_color` | theme error color | Color of the alert glow |
 | `theme` | – | Theme for this card |
 | `tap_action` | `more-info` | Standard HA actions, plus `toggle-compact` |
 | `hold_action` / `double_tap_action` | – | Standard HA actions, plus `toggle-compact` |
@@ -133,6 +137,7 @@ When the tap action is `more-info`, tapping a value opens that value's entity.
 | `show_value` / `show_graph` | Show this entity in the header / in the graph |
 | `hide_below` / `hide_above` | Hide the entity completely while its value is below / above this value |
 | `hide_unavailable` | Hide the entity while it is unavailable |
+| `alert_above` / `alert_below` | The whole card glows while the value is at or above / at or below this value |
 
 #### Color scales
 
@@ -146,6 +151,19 @@ Below the first stop and above the last stop, the first and last color are used.
 The editor shows a live preview bar of the scale and has presets: room temperature, outdoor temperature, heating, humidity, CO₂ and battery.
 
 By default the fill area uses the same height-based coloring as the line, which gives horizontal color bands. With `fill_gradient: time`, the fill below the line is colored along the time axis instead, so you can see at a glance *when* a threshold was exceeded.
+
+#### Alert
+
+```yaml
+type: custom:best-number-card
+alert_style: glow          # glow | blink | static
+alert_color: var(--red-color)
+entities:
+  - entity: sensor.boiler_temperature
+    alert_above: 95
+```
+
+The glow is a layer above the card whose opacity is animated. Browsers run this on the GPU, so it costs almost no CPU, even on wall tablets. If *reduce motion* is enabled in the operating system, the card glows steadily instead of pulsing.
 
 ## Performance
 
