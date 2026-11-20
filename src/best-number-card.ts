@@ -5,15 +5,12 @@ import { colorAt, gradientStops, timeGradientStops, parseColor, rgbaToCss, sortS
 import { DataSource } from "./data";
 import { aggregate, dataRange, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
 import { formatNumber, formatTime, localize } from "./localize";
-import type { CardConfig, ColorStop, EntityConfig, HassEntity, HomeAssistant } from "./types";
+import { defaultColor, jumpValues } from "./presets";
+import type { CardConfig, EntityConfig, HassEntity, HomeAssistant } from "./types";
 import "./editor";
 
 export const VERSION: string = pkg.version;
 
-const PALETTE = [
-  "#44739e", "#984ea3", "#00d2d5", "#ff7f00", "#af8d00", "#7f80cd",
-  "#b3e900", "#c42e60", "#a65628", "#f781bf", "#8dd3c7", "#bebada",
-];
 
 const DEFAULTS = {
   hours_to_show: 24,
@@ -25,6 +22,7 @@ const DEFAULTS = {
   tooltip: true,
   end_labels: "none",
   legend_icon: "dot",
+  y_axis: "hover",
 };
 
 interface SeriesModel {
@@ -43,6 +41,24 @@ interface SeriesModel {
   color: string;
   lineWidth: number;
   fill: boolean;
+  /** temporarily switched off via the legend */
+  off: boolean;
+  ext: { min: number; max: number; avg: number };
+}
+
+interface AxisModel {
+  lo: number;
+  hi: number;
+  /** colored labels only when there are several scales */
+  colored: boolean;
+  entity: EntityConfig;
+}
+
+interface ThresholdModel {
+  y: number;
+  value: number;
+  color: string;
+  entity: EntityConfig;
 }
 
 interface GraphModel {
@@ -53,9 +69,37 @@ interface GraphModel {
   start: number;
   end: number;
   series: SeriesModel[];
+  axes: AxisModel[];
+  thresholds: ThresholdModel[];
+  hasData: boolean;
 }
 
 let uid = 0;
+
+const isSet = (x: unknown) => x !== undefined && x !== null && x !== "";
+
+function storageGet(key: string): any {
+  try {
+    const raw = window.localStorage?.getItem(key);
+    return raw ? JSON.parse(raw) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function storageSet(key: string, value: unknown): void {
+  try {
+    window.localStorage?.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private mode / blocked storage – not important */
+  }
+}
+
+function hash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
 
 export class BestNumberCard extends LitElement {
   static properties = {
@@ -65,6 +109,7 @@ export class BestNumberCard extends LitElement {
     _width: { state: true },
     _hoverX: { state: true },
     _tick: { state: true },
+    _off: { state: true },
   };
 
   hass?: HomeAssistant;
@@ -73,6 +118,8 @@ export class BestNumberCard extends LitElement {
   private _width = 0;
   private _hoverX: number | null = null;
   private _tick = 0;
+  /** entities switched off via the legend (session only) */
+  private _off = new Set<string>();
 
   private _uid = `bnc${++uid}`;
   private _cfgVersion = 0;
@@ -89,6 +136,10 @@ export class BestNumberCard extends LitElement {
   private _held = false;
   private _down?: { x: number; y: number };
   private _clickTimer?: number;
+  private _scrub?: { x: number; y: number; active: boolean };
+  private _suppressClick = false;
+  private _hideTimer?: number;
+  private _storageKey = "";
   private _resolve = (c: string) => parseColor(c, this);
 
   // ---------------------------------------------------------------- HA API
@@ -98,9 +149,7 @@ export class BestNumberCard extends LitElement {
   }
 
   static getStubConfig(hass: HomeAssistant): Partial<CardConfig> {
-    const ids = Object.keys(hass.states).filter(
-      (id) => id.startsWith("sensor.") && hass.states[id].attributes.unit_of_measurement && !isNaN(Number(hass.states[id].state)),
-    );
+    const ids = Object.keys(hass.states).filter((id) => isNumericSensor(hass, id));
     return { entities: ids.slice(0, 2).map((entity) => ({ entity })) };
   }
 
@@ -115,7 +164,15 @@ export class BestNumberCard extends LitElement {
     const prev = this._config;
     this._cfgVersion++;
     this._config = { ...config, entities };
-    if (!prev || prev.compact !== config.compact) this._compact = !!config.compact;
+    this._storageKey = `best-number-card:compact:${hash(JSON.stringify([config.name, entities.map((e) => e.entity)]))}`;
+    if (!prev || prev.compact !== config.compact) {
+      this._compact = !!config.compact;
+      // restore the state toggled on this device (only while the configured default is unchanged)
+      if (config.remember_compact !== false) {
+        const saved = storageGet(this._storageKey);
+        if (saved && saved.d === !!config.compact) this._compact = !!saved.v;
+      }
+    }
   }
 
   getCardSize(): number {
@@ -139,6 +196,7 @@ export class BestNumberCard extends LitElement {
     this._ro?.disconnect();
     this._ro = undefined;
     this._graphEl = undefined;
+    clearTimeout(this._hideTimer);
   }
 
   protected shouldUpdate(changed: PropertyValues): boolean {
@@ -174,8 +232,7 @@ export class BestNumberCard extends LitElement {
   // ---------------------------------------------------------------- data
 
   private _visible(): EntityConfig[] {
-    const cfg = this._config!;
-    return cfg.entities.filter((e) => !this._isHidden(e));
+    return this._config!.entities.filter((e) => !this._isHidden(e));
   }
 
   private _isHidden(e: EntityConfig): boolean {
@@ -183,8 +240,8 @@ export class BestNumberCard extends LitElement {
     const v = st ? Number(st.state) : NaN;
     const numeric = st !== undefined && st.state !== "" && Number.isFinite(v);
     if (e.hide_unavailable && !numeric) return true;
-    if (numeric && e.hide_below !== undefined && e.hide_below !== null && v < Number(e.hide_below)) return true;
-    if (numeric && e.hide_above !== undefined && e.hide_above !== null && v > Number(e.hide_above)) return true;
+    if (numeric && isSet(e.hide_below) && v < Number(e.hide_below)) return true;
+    if (numeric && isSet(e.hide_above) && v > Number(e.hide_above)) return true;
     return false;
   }
 
@@ -255,8 +312,7 @@ export class BestNumberCard extends LitElement {
   }
 
   private _name(e: EntityConfig): string {
-    const st = this._state(e);
-    return e.name ?? st?.attributes.friendly_name ?? e.entity;
+    return e.name ?? this._state(e)?.attributes.friendly_name ?? e.entity;
   }
 
   private _unit(e: EntityConfig): string {
@@ -264,7 +320,7 @@ export class BestNumberCard extends LitElement {
   }
 
   private _decimals(e: EntityConfig, raw?: string): number | undefined {
-    if (e.decimals !== undefined && e.decimals !== null && (e.decimals as any) !== "") return Number(e.decimals);
+    if (isSet(e.decimals)) return Number(e.decimals);
     const p = this.hass?.entities?.[e.entity]?.display_precision;
     if (typeof p === "number") return p;
     if (raw !== undefined) {
@@ -291,10 +347,7 @@ export class BestNumberCard extends LitElement {
 
   private _baseColor(e: EntityConfig): string {
     if (e.color) return e.color;
-    const i = this._config!.entities.indexOf(e);
-    if (i <= 0) return "var(--accent-color)";
-    const fallback = PALETTE[(i - 1) % PALETTE.length];
-    return `var(--graph-color-${i + 1}, ${fallback})`;
+    return defaultColor(this._config!.entities.indexOf(e));
   }
 
   /** Color of a series at a given value (color scale aware). */
@@ -316,6 +369,21 @@ export class BestNumberCard extends LitElement {
     for (const [k, v] of Object.entries(theme)) {
       if (typeof v === "string") this.style.setProperty(`--${k}`, v);
     }
+  }
+
+  private _setCompact(value: boolean): void {
+    this._compact = value;
+    this._hoverX = null;
+    if (this._config?.remember_compact !== false) {
+      storageSet(this._storageKey, { v: value, d: !!this._config?.compact });
+    }
+  }
+
+  private _toggleSeries(entity: string): void {
+    const next = new Set(this._off);
+    if (next.has(entity)) next.delete(entity);
+    else next.add(entity);
+    this._off = next;
   }
 
   // ---------------------------------------------------------------- graph model
@@ -347,39 +415,47 @@ export class BestNumberCard extends LitElement {
     if (!this._ds || !this._width) return undefined;
     const ents = this._graphEntities();
     const height = this._graphHeight();
-    const plotW = Math.max(20, this._width - this._labelMargin(ents));
+    const plotW = Math.max(20, this._width - this._labelMargin(ents.filter((e) => !this._off.has(e.entity))));
     const detail = (Number(cfg.detail) === 2 ? 2 : 1) as 1 | 2;
-    const key = JSON.stringify([this._tick, this._cfgVersion, this._dsKey, this._width, height, plotW, detail]);
+    const key = JSON.stringify([
+      this._tick, this._cfgVersion, this._dsKey, this._width, height, plotW, detail, [...this._off], this._ds.loaded,
+    ]);
     if (this._model?.key === key) return this._model;
 
     const end = Date.now();
     const start = end - this._hours * 3_600_000;
     const n = Math.max(2, Math.round(plotW / (detail === 2 ? 2 : 8)));
-    const multi = ents.length > 1;
+    const shown = ents.filter((e) => !this._off.has(e.entity));
+    const multi = shown.length > 1;
 
-    // aggregate first, then build shared scales per group
+    // aggregate first, then build shared scales per group (only from series that are switched on)
     const agg = ents.map((e) => {
       const data = this._ds!.series(e.entity) ?? { t: [], v: [] };
       return { e, b: aggregate(data, start, end, n) };
     });
-    const groups = new Map<string, { lo: number; hi: number }>();
+    const groups = new Map<string, { lo: number; hi: number; first?: EntityConfig }>();
     for (const { e, b } of agg) {
       const g = e.scale || "default";
-      const [lo, hi] = dataRange([b]);
       const cur = groups.get(g) ?? { lo: Infinity, hi: -Infinity };
-      cur.lo = Math.min(cur.lo, lo);
-      cur.hi = Math.max(cur.hi, hi);
+      if (!this._off.has(e.entity) || !groups.has(g)) {
+        const [lo, hi] = dataRange([b]);
+        if (!this._off.has(e.entity)) {
+          cur.lo = Math.min(cur.lo, lo);
+          cur.hi = Math.max(cur.hi, hi);
+          cur.first ??= e;
+        }
+      }
       groups.set(g, cur);
     }
-    // explicit limits: entity min/max > card limits
     for (const [g, r] of groups) {
+      // explicit limits: entity min/max > card limits
       const members = ents.filter((e) => (e.scale || "default") === g);
-      const mins = members.map((e) => e.min).filter((x) => x !== undefined && x !== null && (x as any) !== "") as number[];
-      const maxs = members.map((e) => e.max).filter((x) => x !== undefined && x !== null && (x as any) !== "") as number[];
-      const lmin = mins.length ? Math.min(...mins.map(Number)) : cfg.limits?.min;
-      const lmax = maxs.length ? Math.max(...maxs.map(Number)) : cfg.limits?.max;
-      if (lmin !== undefined && lmin !== null) r.lo = Number(lmin);
-      if (lmax !== undefined && lmax !== null) r.hi = Number(lmax);
+      const mins = members.map((e) => e.min).filter(isSet).map(Number);
+      const maxs = members.map((e) => e.max).filter(isSet).map(Number);
+      const lmin = mins.length ? Math.min(...mins) : cfg.limits?.min;
+      const lmax = maxs.length ? Math.max(...maxs) : cfg.limits?.max;
+      if (isSet(lmin)) r.lo = Number(lmin);
+      if (isSet(lmax)) r.hi = Number(lmax);
       if (!Number.isFinite(r.lo) || !Number.isFinite(r.hi)) {
         r.lo = 0;
         r.hi = 1;
@@ -390,6 +466,7 @@ export class BestNumberCard extends LitElement {
       }
     }
 
+    let hasData = false;
     const series: SeriesModel[] = agg.map(({ e, b }, index) => {
       const { lo, hi } = groups.get(e.scale || "default")!;
       const lineWidth = Number(e.line_width) > 0 ? Number(e.line_width) : multi ? 3 : 4;
@@ -399,6 +476,11 @@ export class BestNumberCard extends LitElement {
         const c = Math.min(Math.max(v, lo), hi);
         return bottom - ((c - lo) / (hi - lo)) * (bottom - top);
       };
+      let sum = 0;
+      let cnt = 0;
+      for (const v of b.mean) if (Number.isFinite(v)) (sum += v), cnt++;
+      const [mn, mx] = dataRange([b]);
+      if (cnt) hasData = true;
       const m: SeriesModel = {
         cfg: e,
         index,
@@ -410,6 +492,8 @@ export class BestNumberCard extends LitElement {
         color: this._baseColor(e),
         lineWidth,
         fill: e.fill ?? !multi,
+        off: this._off.has(e.entity),
+        ext: { min: mn, max: mx, avg: cnt ? sum / cnt : NaN },
       };
       if (e.color_scale?.length) {
         m.gradId = `${this._uid}-g${index}`;
@@ -422,15 +506,37 @@ export class BestNumberCard extends LitElement {
       }
       return m;
     });
-    this._model = { key, width: this._width, plotW, height, start, end, series };
+
+    const axes: AxisModel[] = [];
+    for (const r of groups.values()) {
+      if (!r.first) continue;
+      axes.push({ lo: r.lo, hi: r.hi, entity: r.first, colored: axesCount(groups) > 1 });
+    }
+
+    const thresholds: ThresholdModel[] = [];
+    if (cfg.show_thresholds) {
+      const seen = new Set<number>();
+      for (const s of series) {
+        if (s.off) continue;
+        for (const v of jumpValues(s.cfg.color_scale, s.cfg.color_scale_mode)) {
+          if (v <= s.lo || v >= s.hi) continue;
+          const yy = Math.round(s.y(v));
+          if (seen.has(yy)) continue;
+          seen.add(yy);
+          thresholds.push({ y: yy, value: v, entity: s.cfg, color: this._colorFor(s.cfg, v) });
+        }
+      }
+    }
+
+    this._model = { key, width: this._width, plotW, height, start, end, series, axes, thresholds, hasData };
     return this._model;
   }
 
   // ---------------------------------------------------------------- interactions
 
-  private _entityFromEvent(ev: Event): string | undefined {
+  private _fromEvent(ev: Event, attr: "entity" | "toggle"): string | undefined {
     for (const el of ev.composedPath()) {
-      const id = (el as HTMLElement)?.dataset?.entity;
+      const id = (el as HTMLElement)?.dataset?.[attr];
       if (id) return id;
     }
     return undefined;
@@ -449,13 +555,29 @@ export class BestNumberCard extends LitElement {
 
   private _onPointerUp = () => clearTimeout(this._holdTimer);
 
+  private _onKeyDown = (ev: KeyboardEvent) => {
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      this._doAction("tap", ev);
+    }
+  };
+
   private _onClick = (ev: MouseEvent) => {
     clearTimeout(this._holdTimer);
+    if (this._suppressClick) {
+      this._suppressClick = false;
+      return;
+    }
     if (this._held) {
       this._held = false;
       return;
     }
     if (this._down && Math.hypot(ev.clientX - this._down.x, ev.clientY - this._down.y) > 10) return;
+    const toggle = this._fromEvent(ev, "toggle");
+    if (toggle && this._config?.legend_toggle !== false) {
+      this._toggleSeries(toggle);
+      return;
+    }
     const dbl = this._config?.double_tap_action;
     if (dbl && dbl.action !== "none") {
       if (this._clickTimer) {
@@ -478,24 +600,62 @@ export class BestNumberCard extends LitElement {
     const action = cfg[`${kind}_action` as const] ?? (kind === "tap" ? { action: "more-info" } : undefined);
     if (!action || !this.hass) return;
     if (action.action === "toggle-compact") {
-      this._compact = !this._compact;
+      this._setCompact(!this._compact);
       return;
     }
     // a click on a value opens that entity (unless an explicit entity is configured)
     let entity = this._visible()[0]?.entity ?? cfg.entities[0].entity;
-    if (action.action === "more-info" && !(action as any).entity) entity = this._entityFromEvent(ev) ?? entity;
+    if (action.action === "more-info" && !(action as any).entity) entity = this._fromEvent(ev, "entity") ?? entity;
     runAction(this, this.hass, action, entity);
   }
 
-  private _onMove = (ev: PointerEvent) => {
-    if (this._config?.tooltip === false || !this._model) return;
+  private _setHoverFromEvent(ev: PointerEvent): void {
+    if (!this._model) return;
     const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
     const x = ev.clientX - rect.left;
     this._hoverX = x >= 0 && x <= this._model.plotW ? x : null;
+  }
+
+  // Mouse: tooltip follows the pointer. Touch: swipe horizontally over the graph to
+  // scrub through the history – a short tap still triggers the card action.
+  private _onGraphDown = (ev: PointerEvent) => {
+    if (ev.pointerType === "mouse") return;
+    this._scrub = { x: ev.clientX, y: ev.clientY, active: false };
   };
 
-  private _onLeave = () => {
-    this._hoverX = null;
+  private _onMove = (ev: PointerEvent) => {
+    if (this._config?.tooltip === false) return;
+    if (ev.pointerType === "mouse") {
+      this._setHoverFromEvent(ev);
+      return;
+    }
+    const s = this._scrub;
+    if (!s) return;
+    if (!s.active) {
+      const dx = Math.abs(ev.clientX - s.x);
+      const dy = Math.abs(ev.clientY - s.y);
+      if (dx < 8 || dx < dy) return;
+      s.active = true;
+      clearTimeout(this._holdTimer);
+      clearTimeout(this._hideTimer);
+    }
+    this._setHoverFromEvent(ev);
+  };
+
+  private _onGraphUp = (ev: PointerEvent) => {
+    if (ev.pointerType === "mouse") return;
+    if (this._scrub?.active) {
+      this._suppressClick = true;
+      // a click event may not follow – reset the flag shortly after
+      setTimeout(() => (this._suppressClick = false), 400);
+      clearTimeout(this._hideTimer);
+      this._hideTimer = window.setTimeout(() => (this._hoverX = null), 2_000);
+    }
+    this._scrub = undefined;
+  };
+
+  private _onLeave = (ev: PointerEvent) => {
+    if (ev.pointerType === "mouse") this._hoverX = null;
   };
 
   // ---------------------------------------------------------------- render
@@ -505,6 +665,7 @@ export class BestNumberCard extends LitElement {
     if (!cfg || !this.hass) return nothing;
     const visible = this._visible();
     const showGraph = !this._compact && (cfg.graph ?? DEFAULTS.graph) !== "none";
+    const model = showGraph ? this._buildModel() : undefined;
 
     return html`
       <ha-card
@@ -513,10 +674,13 @@ export class BestNumberCard extends LitElement {
         @pointerup=${this._onPointerUp}
         @pointercancel=${this._onPointerUp}
         @click=${this._onClick}
+        @keydown=${this._onKeyDown}
         tabindex="0"
+        role="button"
+        aria-label=${cfg.name ?? this._name(visible[0] ?? cfg.entities[0])}
       >
-        ${this._compact ? this._renderCompact(visible) : this._renderHeader(visible)}
-        ${showGraph && visible.length ? this._renderGraph() : nothing}
+        ${this._compact ? this._renderCompact(visible) : this._renderHeader(visible, model)}
+        ${showGraph && visible.length ? this._renderGraph(model) : nothing}
       </ha-card>
     `;
   }
@@ -538,7 +702,19 @@ export class BestNumberCard extends LitElement {
     return e.color_scale?.length ? `color:${this._colorFor(e, this._current(e))}` : "";
   }
 
-  private _renderHeader(visible: EntityConfig[]): TemplateResult {
+  private _renderExtrema(e: EntityConfig, model?: GraphModel): TemplateResult | typeof nothing {
+    if (!this._config!.show_extrema || !model) return nothing;
+    const s = model.series.find((x) => x.cfg === e);
+    if (!s || !Number.isFinite(s.ext.min)) return nothing;
+    const l = (k: string) => localize(this.hass, k);
+    return html`<div class="extrema">
+      <span title=${l("card.min")}>↓ ${this._formatValue(e, s.ext.min)}</span>
+      <span title=${l("card.avg")}>Ø ${this._formatValue(e, s.ext.avg)}</span>
+      <span title=${l("card.max")}>↑ ${this._formatValue(e, s.ext.max)}</span>
+    </div>`;
+  }
+
+  private _renderHeader(visible: EntityConfig[], model?: GraphModel): TemplateResult {
     const cfg = this._config!;
     const single = cfg.entities.length === 1;
     const first = visible[0] ?? cfg.entities[0];
@@ -562,32 +738,44 @@ export class BestNumberCard extends LitElement {
 
     if (display === "primary") {
       return html`${header}
-        <div class="info" data-entity=${first.entity}>
+        <div class="info fade" data-entity=${first.entity}>
           <span class="value" style=${this._valueStyle(first)}>${this._formatState(first)}</span>
           <span class="measurement">${this._unit(first)}</span>
+          ${this._renderExtrema(first, model)}
         </div>`;
     }
 
     const items = visible.filter((e) => e.show_value !== false);
     const many = items.length > 1;
+    const toggle = many && cfg.legend_toggle !== false && cfg.graph !== "none";
     return html`${header}
-      <div class="values ${many ? "multi" : ""} ${showHeader ? "" : "noheader"}">
-        ${items.map(
-          (e) => html`<div class="item" data-entity=${e.entity}>
-            ${many ? html`<div class="item-name">${this._renderMarker(e)}<span>${this._name(e)}</span></div>` : nothing}
+      <div class="values fade ${many ? "multi" : ""} ${showHeader ? "" : "noheader"}">
+        ${items.map((e) => {
+          const off = this._off.has(e.entity);
+          return html`<div class="item ${off ? "off" : ""}" data-entity=${e.entity}>
+            ${many
+              ? html`<div
+                  class="item-name ${toggle ? "toggle" : ""}"
+                  data-toggle=${toggle ? e.entity : ""}
+                  title=${toggle ? localize(this.hass, "card.toggle_series") : ""}
+                >
+                  ${this._renderMarker(e)}<span>${this._name(e)}</span>
+                </div>`
+              : nothing}
             <div class="item-value">
               <span class="value" style=${this._valueStyle(e)}>${this._formatState(e)}</span>
               <span class="measurement">${this._unit(e)}</span>
             </div>
-          </div>`,
-        )}
+            ${this._renderExtrema(e, model)}
+          </div>`;
+        })}
       </div>`;
   }
 
   private _renderCompact(visible: EntityConfig[]): TemplateResult {
     const cfg = this._config!;
     const items = visible.filter((e) => e.show_value !== false);
-    return html`<div class="compact-row">
+    return html`<div class="compact-row fade">
       ${cfg.name ? html`<span class="compact-name">${cfg.name}</span>` : nothing}
       <div class="compact-values">
         ${items.length
@@ -605,33 +793,54 @@ export class BestNumberCard extends LitElement {
     </div>`;
   }
 
-  private _renderGraph(): TemplateResult {
-    const model = this._buildModel();
+  private _renderGraph(model?: GraphModel): TemplateResult {
     const height = this._graphHeight();
+    const loading = !model || (!this._ds?.loaded && !model.hasData);
+    const yAxis = this._config!.y_axis ?? DEFAULTS.y_axis;
     return html`<div
-      class="graph"
+      class="graph fade ${this._hoverX !== null ? "active" : ""}"
       style="height:${height}px"
+      @pointerdown=${this._onGraphDown}
       @pointermove=${this._onMove}
+      @pointerup=${this._onGraphUp}
+      @pointercancel=${this._onGraphUp}
       @pointerleave=${this._onLeave}
     >
-      ${model ? this._renderSvg(model) : nothing} ${model ? this._renderEndLabels(model) : nothing}
-      ${model ? this._renderTooltip(model) : nothing}
+      ${loading
+        ? html`<div class="loading" aria-label=${localize(this.hass, "card.loading")}></div>`
+        : html`${this._renderSvg(model!)} ${this._renderEndLabels(model!)}
+          ${model!.hasData ? nothing : html`<div class="nodata">${localize(this.hass, "card.no_data")}</div>`}
+          ${yAxis !== "none" && model!.hasData ? this._renderAxes(model!, yAxis) : nothing}
+          ${this._renderTooltip(model!)}`}
+    </div>`;
+  }
+
+  private _renderAxes(m: GraphModel, mode: string): TemplateResult {
+    const fmt = (e: EntityConfig, v: number) => `${this._formatValue(e, v)} ${this._unit(e)}`.trim();
+    return html`<div class="axes ${mode === "hover" ? "hover" : ""}">
+      ${m.axes.map((a) => {
+        const c = (v: number) => (a.colored ? `color:${this._colorFor(a.entity, v)}` : "");
+        return html`<div class="axis">
+          <span style=${c(a.hi)}>${fmt(a.entity, a.hi)}</span><span style=${c(a.lo)}>${fmt(a.entity, a.lo)}</span>
+        </div>`;
+      })}
     </div>`;
   }
 
   private _renderSvg(m: GraphModel): TemplateResult {
     const smooth = this._config!.smoothing ?? DEFAULTS.smoothing;
     const hover = this._hoverX;
+    const shown = m.series.filter((s) => !s.off);
     return html`<svg width=${m.width} height=${m.height} viewBox="0 0 ${m.width} ${m.height}">
       <defs>
-        ${m.series.map((s) =>
+        ${shown.map((s) =>
           s.gradId
             ? svg`<linearGradient id=${s.gradId} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1=${s.y(s.lo)} y2=${s.y(s.hi)}>
                 ${s.grad!.map((g) => svg`<stop offset=${g.offset} stop-color=${g.color}></stop>`)}
               </linearGradient>`
             : nothing,
         )}
-        ${m.series.map((s) =>
+        ${shown.map((s) =>
           s.fillGradId
             ? svg`<linearGradient id=${s.fillGradId} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">
                 ${s.fillGrad!.map((g) => svg`<stop offset=${g.offset} stop-color=${g.color}></stop>`)}
@@ -639,7 +848,10 @@ export class BestNumberCard extends LitElement {
             : nothing,
         )}
       </defs>
-      ${m.series.map((s) => {
+      ${m.thresholds.map(
+        (t) => svg`<line class="threshold" x1="0" x2=${m.plotW} y1=${t.y} y2=${t.y} style="stroke:${t.color}"></line>`,
+      )}
+      ${shown.map((s) => {
         const paint = s.gradId ? `url(#${s.gradId})` : s.color;
         const fillPaint = s.fillGradId ? `url(#${s.fillGradId})` : paint;
         return svg`<g>
@@ -654,20 +866,26 @@ export class BestNumberCard extends LitElement {
       })}
       ${hover !== null
         ? svg`<line class="cursor" x1=${hover} x2=${hover} y1="0" y2=${m.height}></line>
-          ${m.series.map((s) => {
+          ${shown.map((s) => {
             const v = valueAtX(s.buckets, hover, m.plotW);
             return Number.isFinite(v)
               ? svg`<circle class="dot" cx=${hover} cy=${s.y(v)} r="4" style="fill:${this._colorFor(s.cfg, v)}"></circle>`
               : nothing;
           })}`
         : nothing}
-    </svg>`;
+    </svg>
+    ${m.thresholds.map(
+      (t) => html`<div class="threshold-label" style="top:${t.y}px;right:${m.width - m.plotW + 4}px;color:${t.color}">
+        ${this._formatValue(t.entity, t.value)}
+      </div>`,
+    )}`;
   }
 
   private _renderEndLabels(m: GraphModel): TemplateResult | typeof nothing {
     const mode = this._config!.end_labels ?? DEFAULTS.end_labels;
     if (mode === "none") return nothing;
     const labels = m.series
+      .filter((s) => !s.off)
       .map((s) => {
         const v = this._current(s.cfg);
         const last = lastFinite(s.buckets.mean);
@@ -696,14 +914,14 @@ export class BestNumberCard extends LitElement {
     const x = this._hoverX;
     if (x === null) return nothing;
     const ts = m.start + (x / m.plotW) * (m.end - m.start);
-    const rows = m.series.map((s) => ({ s, v: valueAtX(s.buckets, x, m.plotW) }));
+    const rows = m.series.filter((s) => !s.off).map((s) => ({ s, v: valueAtX(s.buckets, x, m.plotW) }));
     const left = x > m.width / 2;
     return html`<div class="tooltip" style="${left ? `right:${m.width - x + 10}px` : `left:${x + 10}px`}">
       <div class="tt-time">${formatTime(this.hass, ts, this._hours > 24)}</div>
       ${rows.map(
         ({ s, v }) => html`<div class="tt-row">
           <span class="marker dot" style="background:${this._colorFor(s.cfg, v)}"></span>
-          ${m.series.length > 1 ? html`<span class="tt-name">${this._name(s.cfg)}</span>` : nothing}
+          ${rows.length > 1 ? html`<span class="tt-name">${this._name(s.cfg)}</span>` : nothing}
           <span class="tt-value">${Number.isFinite(v) ? this._formatValue(s.cfg, v) : "–"} ${this._unit(s.cfg)}</span>
         </div>`,
       )}
@@ -722,6 +940,23 @@ export class BestNumberCard extends LitElement {
       cursor: pointer;
       outline: none;
       box-sizing: border-box;
+    }
+    ha-card:focus-visible {
+      box-shadow: 0 0 0 2px var(--primary-color);
+    }
+    .fade {
+      animation: bnc-in 0.2s ease-out;
+    }
+    @keyframes bnc-in {
+      from {
+        opacity: 0;
+        transform: translateY(3px);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .fade {
+        animation: none;
+      }
     }
     .header {
       display: flex;
@@ -762,6 +997,14 @@ export class BestNumberCard extends LitElement {
       font-size: 18px;
       color: var(--secondary-text-color);
     }
+    .extrema {
+      display: flex;
+      gap: 10px;
+      font-size: 12px;
+      line-height: 16px;
+      color: var(--secondary-text-color);
+      white-space: nowrap;
+    }
     .values {
       display: flex;
       flex-wrap: wrap;
@@ -781,6 +1024,13 @@ export class BestNumberCard extends LitElement {
     }
     .item {
       min-width: 0;
+      transition: opacity 0.2s;
+    }
+    .item.off {
+      opacity: 0.45;
+    }
+    .item.off .item-name span {
+      text-decoration: line-through;
     }
     .item-value {
       line-height: 28px;
@@ -796,6 +1046,14 @@ export class BestNumberCard extends LitElement {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .item-name.toggle {
+      border-radius: 4px;
+    }
+    @media (hover: hover) {
+      .item-name.toggle:hover {
+        color: var(--primary-text-color);
+      }
     }
     .marker.dot {
       display: inline-block;
@@ -833,6 +1091,20 @@ export class BestNumberCard extends LitElement {
       opacity: 0.15;
       stroke: none;
     }
+    .threshold {
+      stroke-width: 1;
+      stroke-dasharray: 4 4;
+      opacity: 0.7;
+    }
+    .threshold-label {
+      position: absolute;
+      transform: translateY(-100%);
+      font-size: 10px;
+      line-height: 12px;
+      padding-bottom: 1px;
+      pointer-events: none;
+      opacity: 0.9;
+    }
     .cursor {
       stroke: var(--secondary-text-color);
       stroke-width: 1;
@@ -842,6 +1114,35 @@ export class BestNumberCard extends LitElement {
     .dot {
       stroke: var(--card-background-color, #fff);
       stroke-width: 2;
+    }
+    .axes {
+      position: absolute;
+      inset: 0 auto 0 0;
+      display: flex;
+      gap: 6px;
+      padding: 2px 6px;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .axes.hover {
+      opacity: 0;
+    }
+    .graph:hover .axes.hover,
+    .graph.active .axes.hover {
+      opacity: 1;
+    }
+    .axis {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 10px;
+      line-height: 12px;
+      color: var(--secondary-text-color);
+    }
+    .axis span {
+      background: color-mix(in srgb, var(--card-background-color, #fff) 75%, transparent);
+      border-radius: 3px;
+      padding: 0 2px;
     }
     .end-label {
       position: absolute;
@@ -859,6 +1160,41 @@ export class BestNumberCard extends LitElement {
     .end-label small {
       font-size: 11px;
       opacity: 0.8;
+    }
+    .loading {
+      position: absolute;
+      inset: 20% 0 0 0;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--secondary-text-color) 12%, transparent) 50%,
+        transparent 100%
+      );
+      background-size: 200% 100%;
+      animation: bnc-shimmer 1.4s linear infinite;
+      border-radius: 0 0 12px 12px;
+    }
+    @keyframes bnc-shimmer {
+      from {
+        background-position: 100% 0;
+      }
+      to {
+        background-position: -100% 0;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .loading {
+        animation: none;
+      }
+    }
+    .nodata {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--secondary-text-color);
     }
     .tooltip {
       position: absolute;
@@ -935,9 +1271,26 @@ export class BestNumberCard extends LitElement {
   `;
 }
 
+function axesCount(groups: Map<string, { first?: EntityConfig }>): number {
+  let n = 0;
+  for (const g of groups.values()) if (g.first) n++;
+  return n;
+}
+
 function lastFinite(arr: Float64Array): number {
   for (let i = arr.length - 1; i >= 0; i--) if (Number.isFinite(arr[i])) return arr[i];
   return NaN;
+}
+
+/** Numeric sensors that make sense in this card (used for the stub config and card suggestions). */
+export function isNumericSensor(hass: HomeAssistant, entityId: string): boolean {
+  const domain = entityId.split(".")[0];
+  if (!["sensor", "number", "input_number"].includes(domain)) return false;
+  const st = hass.states[entityId];
+  if (!st) return false;
+  const a = st.attributes;
+  if (domain === "sensor" && !a.unit_of_measurement && !a.state_class) return false;
+  return st.state === "unavailable" || st.state === "unknown" || Number.isFinite(Number(st.state));
 }
 
 if (!customElements.get("best-number-card")) {
@@ -953,6 +1306,9 @@ if (!(window as any).customCards.some((c: any) => c.type === "best-number-card")
     description: "Sensor card for multiple entities with color scales and efficient history loading.",
     preview: true,
     documentationURL: "https://github.com/zitroaen/bestnumbercard",
+    // Home Assistant 2026.6+: offer the card in the "add card by entity" picker
+    getEntitySuggestion: (hass: HomeAssistant, entityId: string) =>
+      isNumericSensor(hass, entityId) ? { config: { type: "custom:best-number-card", entities: [{ entity: entityId }] } } : null,
   });
 }
 
@@ -961,5 +1317,3 @@ declare global {
     "best-number-card": BestNumberCard;
   }
 }
-
-export type { ColorStop };

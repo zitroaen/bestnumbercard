@@ -161,6 +161,9 @@ export class DataSource {
   private timer?: number;
   private disposed = false;
   private changeScheduled = false;
+  private pendingGroups = 0;
+  /** true once statistics and the first history message of every subscription arrived */
+  loaded = false;
 
   constructor(private hass: HomeAssistant, private opts: DataSourceOptions) {
     this.entities = [...new Set(opts.entities)];
@@ -219,6 +222,8 @@ export class DataSource {
       g.push(e);
       groups.set(from, g);
     }
+    this.pendingGroups = groups.size;
+    if (!groups.size) this.loaded = true;
     for (const [from, ents] of groups) this.subscribe(from, ents);
 
     if (this.useStatistics) {
@@ -230,7 +235,17 @@ export class DataSource {
   }
 
   private subscribe(from: number, entityIds: string[]): void {
-    const p = this.hass.connection.subscribeMessage<StreamMessage>((msg) => this.onStream(msg), {
+    let first = true;
+    const p = this.hass.connection.subscribeMessage<StreamMessage>((msg) => {
+      if (first) {
+        first = false;
+        if (--this.pendingGroups <= 0) {
+          this.loaded = true;
+          this.notify();
+        }
+      }
+      this.onStream(msg);
+    }, {
       type: "history/stream",
       entity_ids: entityIds,
       start_time: new Date(from).toISOString(),
@@ -243,7 +258,13 @@ export class DataSource {
         if (this.disposed) unsub().catch(() => undefined);
         else this.unsubs.push(unsub);
       },
-      (err) => console.warn("best-number-card: history subscription failed", err),
+      (err) => {
+        console.warn("best-number-card: history subscription failed", err);
+        if (--this.pendingGroups <= 0) {
+          this.loaded = true;
+          this.notify();
+        }
+      },
     );
     for (const e of entityIds) this.stores.get(e)!.rawUntil = NaN;
   }

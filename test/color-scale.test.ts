@@ -60,3 +60,20 @@ test("time gradient: vertical bands with a jump between two points", async () =>
   assert.equal(g[1].color, "rgb(0,255,0)");
   assert.equal(g[2].color, "rgb(255,0,0)");
 });
+
+test("editor rows: equal values become one row with a jump and back", async () => {
+  const { stopsToRows, rowsToStops, jumpValues } = await import("../src/presets");
+  const stops = [
+    { value: 20, color: "blue" },
+    { value: 95, color: "orange" },
+    { value: 95, color: "darkred" },
+  ];
+  const rows = stopsToRows(stops);
+  assert.deepEqual(rows, [
+    { value: 20, color: "blue" },
+    { value: 95, below: "orange", color: "darkred" },
+  ]);
+  assert.deepEqual(rowsToStops(rows), stops);
+  assert.deepEqual(jumpValues(stops), [95]);
+  assert.deepEqual(jumpValues([{ value: 0, color: "a" }, { value: 10, color: "b" }], "step"), [10]);
+});

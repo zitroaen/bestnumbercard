@@ -7,14 +7,44 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 ![Best Number Card](https://raw.githubusercontent.com/zitroaen/bestnumbercard/main/docs/screenshot.png)
 
 - **Multiple entities** in one card, each with its own line
-- **Color scales per series**: gradients, hard steps, or both (e.g. gradient up to 95 °C, then a jump to dark red)
-- **Separate y-axes** (scale groups) for series with different units or ranges
+- **Color scales per series**: gradients, hard steps, or both (e.g. gradient up to 95 °C, then a jump to dark red), with optional **dashed lines at the jumps**
+- **Separate y-axes** (scale groups) for series with different units or ranges, with **y-axis labels** on hover or permanently
 - **Labels at the end of each line** (current value and/or icon) that move with the latest value
+- **Min / average / max** of the visible time range, without any extra query
+- **Tap a legend entry** to temporarily hide its line
 - **Hide entities depending on their value**. A hidden entity is not shown and its history is not loaded at all.
-- **Compact mode**: values only, minimal height, no history loaded. It can be the default, or you can toggle it by tapping the card.
-- **Tooltip** on hover
-- **Visual editor** in English and German. The language follows your Home Assistant language.
+- **Compact mode**: values only, minimal height, no history loaded. It can be the default, or you can toggle it by tapping the card. The toggled state is remembered on each device.
+- **Tooltip** on hover, and on phones by **swiping across the graph**
+- **Visual editor** in English and German, with color scale preview, presets, drag & drop sorting, warnings and performance hints. The language follows your Home Assistant language.
 - **Very light on your system**, even for long windows of dense data (see [Performance](#performance))
+- Shows up in Home Assistant's **card suggestions** when you add a card for a numeric sensor (HA 2026.6 or newer)
+
+## Comparison with the built-in sensor card
+
+| | Sensor card | Best Number Card |
+|---|---|---|
+| Entities per card | 1 | any number |
+| Look (name, icon, big value, graph at the bottom) | ✓ | ✓ same layout |
+| `graph`, `detail`, `hours_to_show`, `limits`, `unit`, `name`, `icon`, `theme` | ✓ | ✓ |
+| Visual editor | ✓ | ✓ with color scale preview, presets, drag & drop, warnings |
+| Line color | fixed | per series, or a **color scale** by value |
+| Color scale with gradients and hard jumps | – | ✓ also colors the fill, the value and the marker |
+| Fill colored along time (vertical bands) | – | ✓ `fill_gradient: time` |
+| Dashed lines at color jumps | – | ✓ `show_thresholds` |
+| Separate y-axes | – | ✓ scale groups |
+| Y-axis labels | – | ✓ on hover or always |
+| Tooltip with time and value | – | ✓ mouse and touch |
+| Labels / icons at the end of the lines | – | ✓ |
+| Min / avg / max of the time range | – | ✓ `show_extrema` |
+| Hide a line by tapping the legend | – | ✓ |
+| Hide entities depending on their value | – | ✓ and their history is not loaded |
+| Compact mode (values only) | – | ✓ default or tap to toggle, remembered per device |
+| Tap / hold / double-tap actions | more info on tap | ✓ all standard actions, plus `toggle-compact` |
+| Loading of long time ranges | raw history | **long-term statistics** + short raw tail |
+| Several cards / views showing the same entity | each loads separately | shared in-memory cache, only the gap is loaded |
+| Redraws with very dense sensors | on every update | throttled to what is visible (about one pixel) |
+| Loading placeholder | – | ✓ |
+| Number format (e.g. German decimal comma) | ✓ | ✓ follows your HA settings |
 
 ## Installation
 
@@ -70,8 +100,13 @@ entities:
 | `value_display` | `primary` (1 entity) / `all` | `primary` = like the sensor card, `all` = all values, `none` |
 | `legend_icon` | `dot` | Marker next to the values: `dot`, `icon`, `none` |
 | `end_labels` | `none` | Label at the end of each line: `none`, `value`, `icon`, `icon_value` |
-| `tooltip` | `true` | Tooltip on hover |
+| `tooltip` | `true` | Tooltip on hover. On touch screens: swipe horizontally across the graph. |
+| `y_axis` | `hover` | Min/max labels of each y-axis: `hover`, `always`, `none` |
+| `show_thresholds` | `false` | Dashed lines with labels at the hard jumps of the color scales |
+| `show_extrema` | `false` | Show min / average / max of the visible time range below each value |
+| `legend_toggle` | `true` | Tap an entity name in the header to hide or show its line |
 | `compact` | `false` | Start in compact mode |
+| `remember_compact` | `true` | Remember a compact mode toggled by tapping, per device |
 | `statistics_threshold` | `6` | Use long-term statistics if `hours_to_show` is larger than this |
 | `statistics_period` | `auto` | `auto`, `5minute`, `hour`, `day` |
 | `theme` | – | Theme for this card |
@@ -103,10 +138,12 @@ When the tap action is `more-info`, tapping a value opens that value's entity.
 
 The stops are sorted by value. The color applies to the line, the fill area, the value and the marker.
 
-- **gradient**: colors are interpolated between neighbouring stops. Two stops with the **same value** form a hard jump, just like in CSS gradients.
+- **gradient**: colors are interpolated between neighbouring stops. Two stops with the **same value** form a hard jump, just like in CSS gradients. In the editor, use the jump button of a stop instead: you then pick the color below and above the value.
 - **step**: each stop's color applies from its value upwards. The first color also applies below the first stop.
 
 Below the first stop and above the last stop, the first and last color are used.
+
+The editor shows a live preview bar of the scale and has presets: room temperature, outdoor temperature, heating, humidity, CO₂ and battery.
 
 By default the fill area uses the same height-based coloring as the line, which gives horizontal color bands. With `fill_gradient: time`, the fill below the line is colored along the time axis instead, so you can see at a glance *when* a threshold was exceeded.
 
@@ -119,6 +156,7 @@ The card is built to put as little load as possible on Home Assistant and the br
 - **In-memory cache per entity:** when you switch dashboard views or open the same entity in several cards, nothing is fetched twice. Only the gap since the card was last visible is loaded. The cache lives only in the open browser tab, so it can never become stale across updates.
 - **Rendering:** data is aggregated to about one point per pixel in O(n), with time-weighted means and no lost peaks in `detail: 2`. Redraws are throttled to the time span one pixel represents, so even very dense sensors do not cause constant redraws. Header values update immediately.
 - Hidden entities and cards in compact mode do not load any history.
+- The editor warns you when a sensor has no long-term statistics, because long time ranges then have to load the raw history.
 
 ## Development
 
