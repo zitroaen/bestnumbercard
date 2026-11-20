@@ -147,3 +147,18 @@ test("old points are dropped while the dashboard stays open", async () => {
   assert.deepEqual(ds.series("sensor.a")!.v, [2, 3]);
   ds.dispose();
 });
+
+test("taking over while still loading statistics does not subscribe twice", async () => {
+  const now = Date.now();
+  const rows = [{ start: now - 30 * 60_000, end: now - 25 * 60_000, mean: 1 }];
+  const { hass, subs } = fakeHass({ "sensor.a": rows });
+  const ds1 = new DataSource(hass, opts(["sensor.a"], () => {}, 24));
+  await ds1.start();
+  const ds2 = new DataSource(hass, opts(["sensor.a"], () => {}, 24));
+  const starting = ds2.start(); // registers as subscriber, then awaits nothing (stats cached)
+  ds1.dispose(); // ds2 adopts the entity
+  await starting;
+  const active = subs.filter((s) => s.active);
+  assert.equal(active.length, 1, "exactly one live subscription");
+  ds2.dispose();
+});

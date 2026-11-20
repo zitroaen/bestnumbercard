@@ -254,6 +254,7 @@ export class DataSource {
     const own = this.entities.filter((e) => {
       const s = this.stores.get(e)!;
       if (s.owner && s.owner !== this && !s.owner.isDisposed) return false;
+      if (s.owner === this && s.live) return false; // already adopted while we were starting
       s.owner = this;
       return true;
     });
