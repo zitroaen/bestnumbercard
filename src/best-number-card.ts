@@ -215,6 +215,7 @@ export class BestNumberCard extends LitElement {
   }
 
   protected updated(): void {
+    this._updateAlert();
     const el = this.renderRoot.querySelector(".graph");
     if (el !== this._graphEl) {
       this._ro?.disconnect();
@@ -368,6 +369,29 @@ export class BestNumberCard extends LitElement {
     if (!theme) return;
     for (const [k, v] of Object.entries(theme)) {
       if (typeof v === "string") this.style.setProperty(`--${k}`, v);
+    }
+  }
+
+  /** True while any entity reaches its alert threshold (independent of value-based hiding). */
+  private _alertActive(): boolean {
+    return this._config!.entities.some((e) => {
+      const v = this._current(e);
+      if (!Number.isFinite(v)) return false;
+      return (isSet(e.alert_above) && v >= Number(e.alert_above)) || (isSet(e.alert_below) && v <= Number(e.alert_below));
+    });
+  }
+
+  /**
+   * The glow is a pseudo element on the host whose opacity is animated – this runs on the
+   * compositor and costs (almost) no CPU, even on wall tablets.
+   */
+  private _updateAlert(): void {
+    const active = !!this._config && this._alertActive();
+    this.toggleAttribute("alert", active);
+    if (active) {
+      this.setAttribute("alert-style", this._config!.alert_style ?? "glow");
+      if (this._config!.alert_color) this.style.setProperty("--bnc-alert-color", this._config!.alert_color);
+      else this.style.removeProperty("--bnc-alert-color");
     }
   }
 
@@ -931,6 +955,46 @@ export class BestNumberCard extends LitElement {
   static styles = css`
     :host {
       display: block;
+      position: relative;
+    }
+    :host([alert])::after {
+      --c: var(--bnc-alert-color, var(--error-color, #db4437));
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      border-radius: var(--ha-card-border-radius, 12px);
+      box-shadow:
+        0 0 0 2px var(--c),
+        0 0 18px 4px color-mix(in srgb, var(--c) 55%, transparent),
+        inset 0 0 28px color-mix(in srgb, var(--c) 28%, transparent);
+      animation: bnc-glow 2s ease-in-out infinite;
+    }
+    :host([alert-style="blink"])::after {
+      animation: bnc-blink 1s steps(1, end) infinite;
+    }
+    :host([alert-style="static"])::after {
+      animation: none;
+    }
+    @keyframes bnc-glow {
+      0%,
+      100% {
+        opacity: 0.3;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
+    @keyframes bnc-blink {
+      50% {
+        opacity: 0;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :host([alert])::after {
+        animation: none;
+      }
     }
     ha-card {
       height: 100%;

@@ -85,6 +85,10 @@ export interface EntityConfig {
   /** … or above this value. */
   hide_above?: number;
   hide_unavailable?: boolean;
+  /** Alert (card glows) while the value is >= this … */
+  alert_above?: number;
+  /** … or <= this value. */
+  alert_below?: number;
 }
 
 export interface CardConfig {
@@ -115,6 +119,10 @@ export interface CardConfig {
   show_extrema?: boolean;
   /** Tap a legend entry to hide/show its line (default true). */
   legend_toggle?: boolean;
+  /** How the card signals an alert: pulsing glow (default), hard blinking or a steady glow. */
+  alert_style?: "glow" | "blink" | "static";
+  /** Alert color (default: the theme's error color). */
+  alert_color?: string;
   statistics_threshold?: number;
   statistics_period?: "auto" | "5minute" | "hour" | "day";
   /** Card-wide limits (like `limits` of the sensor card). */

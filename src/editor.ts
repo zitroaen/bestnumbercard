@@ -11,6 +11,15 @@ const mdiJump = "M3,17H9V7H15V17H21V19H13V9H11V19H3V17Z";
 const mdiPlus = "M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z";
 
 const num = { number: { mode: "box", step: "any" } };
+
+/** Home Assistant theme colors (CSS variable name, default value). */
+const THEME_COLORS: Array<[string, string]> = [
+  ["red", "#f44336"], ["pink", "#e91e63"], ["purple", "#926bc7"], ["deep-purple", "#6e41ab"],
+  ["indigo", "#3f51b5"], ["blue", "#2196f3"], ["light-blue", "#03a9f4"], ["cyan", "#00bcd4"],
+  ["teal", "#009688"], ["green", "#4caf50"], ["light-green", "#8bc34a"], ["lime", "#cddc39"],
+  ["yellow", "#ffeb3b"], ["amber", "#ffc107"], ["orange", "#ff9800"], ["deep-orange", "#ff6f22"],
+  ["brown", "#795548"], ["grey", "#9e9e9e"], ["blue-grey", "#607d8b"], ["black", "#000000"],
+];
 const isSet = (x: unknown) => x !== undefined && x !== null && x !== "";
 
 function select(hass: HomeAssistant | undefined, values: Array<string | number>, prefix = "opt."): any {
@@ -46,12 +55,15 @@ export class BestNumberCardEditor extends LitElement {
     _config: { state: true },
     _expanded: { state: true },
     _drag: { state: true },
+    _picker: { state: true },
   };
 
   hass?: HomeAssistant;
   private _config?: CardConfig;
   private _expanded = -1;
   private _drag?: DragState;
+  /** key of the color field whose palette is open */
+  private _picker: string | null = null;
   private _resolve = (c: string) => parseColor(c, this);
 
   setConfig(config: CardConfig): void {
@@ -257,7 +269,6 @@ export class BestNumberCardEditor extends LitElement {
       grid([
         { name: "name", selector: { text: {} } },
         { name: "icon", selector: { icon: {} } },
-        ...(hasScale ? [] : [{ name: "color", selector: { text: {} } }]),
       ]),
       {
         type: "expandable",
@@ -270,6 +281,18 @@ export class BestNumberCardEditor extends LitElement {
             { name: "hide_above", selector: num },
           ]),
           { name: "hide_unavailable", selector: { boolean: {} } },
+        ],
+      },
+      {
+        type: "expandable",
+        flatten: true,
+        title: this._l("editor.section.alert"),
+        expanded: isSet(e.alert_above) || isSet(e.alert_below),
+        schema: [
+          grid([
+            { name: "alert_above", selector: num },
+            { name: "alert_below", selector: num },
+          ]),
         ],
       },
       {
@@ -439,22 +462,69 @@ export class BestNumberCardEditor extends LitElement {
     </div>`;
   }
 
-  private _renderColorInput(value: string, onChange: (c: string) => void, label: string): TemplateResult {
-    return html`<span class="color-input" title=${label}>
-      <input
-        type="color"
-        aria-label=${label}
-        .value=${toHex(value, this)}
-        @change=${(ev: Event) => onChange((ev.target as HTMLInputElement).value)}
-      />
-      <input
-        class="text"
-        type="text"
-        aria-label=${label}
-        .value=${value}
-        @change=${(ev: Event) => onChange((ev.target as HTMLInputElement).value.trim())}
-      />
-    </span>`;
+  /**
+   * Color field: swatch + text input. The swatch opens a palette with the Home Assistant
+   * theme colors (stored as CSS variables, so they follow the theme) and a free color picker.
+   */
+  private _renderColorField(
+    key: string,
+    value: string | undefined,
+    onChange: (c: string | undefined) => void,
+    label: string,
+    placeholder = "",
+  ): TemplateResult {
+    const open = this._picker === key;
+    const pick = (c: string | undefined) => {
+      this._picker = null;
+      onChange(c);
+    };
+    return html`<div class="cf ${open ? "open" : ""}">
+      <div class="cf-row">
+        <button
+          class="cf-swatch"
+          type="button"
+          style="background:${value || placeholder || "transparent"}"
+          aria-label=${label}
+          aria-expanded=${open ? "true" : "false"}
+          title=${label}
+          @click=${() => (this._picker = open ? null : key)}
+        ></button>
+        <input
+          class="text"
+          type="text"
+          aria-label=${label}
+          placeholder=${placeholder}
+          .value=${value ?? ""}
+          @change=${(ev: Event) => pick((ev.target as HTMLInputElement).value.trim() || undefined)}
+        />
+      </div>
+      ${open
+        ? html`<div class="cf-pop" @keydown=${(ev: KeyboardEvent) => ev.key === "Escape" && (this._picker = null)}>
+            <div class="cf-label">${this._l("editor.theme_colors")}</div>
+            <div class="cf-grid">
+              ${THEME_COLORS.map(([name, hex]) => {
+                const v = `var(--${name}-color, ${hex})`;
+                return html`<button
+                  type="button"
+                  class="cf-chip ${value === v ? "sel" : ""}"
+                  style="background:${v}"
+                  title=${name}
+                  aria-label=${name}
+                  @click=${() => pick(v)}
+                ></button>`;
+              })}
+            </div>
+            <label class="cf-custom">
+              <input
+                type="color"
+                .value=${toHex(value || placeholder || "#ff0000", this)}
+                @change=${(ev: Event) => pick((ev.target as HTMLInputElement).value)}
+              />
+              ${this._l("editor.custom_color")}
+            </label>
+          </div>`
+        : nothing}
+    </div>`;
   }
 
   private _renderStops(i: number, e: EntityConfig): TemplateResult {
@@ -518,10 +588,10 @@ export class BestNumberCardEditor extends LitElement {
           />
           <div class="stop-colors">
             ${r.below !== undefined
-              ? html`${this._renderColorInput(r.below, (c) => update(k, { below: c }), this._l("editor.below"))}
+              ? html`${this._renderColorField(`s${i}-${k}-b`, r.below, (c) => update(k, { below: c ?? r.below }), this._l("editor.below"))}
                   <span class="arrow">→</span>`
               : nothing}
-            ${this._renderColorInput(r.color, (c) => update(k, { color: c }), this._l("editor.above"))}
+            ${this._renderColorField(`s${i}-${k}`, r.color, (c) => update(k, { color: c ?? r.color }), this._l("editor.above"))}
           </div>
           ${mode === "gradient"
             ? html`<ha-icon-button
@@ -622,6 +692,18 @@ export class BestNumberCardEditor extends LitElement {
               this._updateEntity(i, v);
             }}
           ></ha-form>
+          ${e.color_scale?.length
+            ? nothing
+            : html`<div class="field-row">
+                <span class="field-label">${this._l("editor.line_color")}</span>
+                ${this._renderColorField(
+                  `l${i}`,
+                  e.color,
+                  (c) => this._updateEntity(i, { ...e, color: c }),
+                  this._l("editor.line_color"),
+                  defaultColor(i),
+                )}
+              </div>`}
           ${this._renderStops(i, e)}
           <div class="panel-actions">
             <button class="text-button danger" @click=${() => this._updateEntity(i, null)}>${this._l("editor.remove")}</button>
@@ -629,6 +711,31 @@ export class BestNumberCardEditor extends LitElement {
         </div>
       </ha-expansion-panel>
     </div>`;
+  }
+
+  private _renderAlertSection(): TemplateResult {
+    const c = this._config!;
+    const used = c.entities.some((e) => isSet(e.alert_above) || isSet(e.alert_below));
+    const set = (patch: Partial<CardConfig>) => this._emit(clean({ ...c, ...patch }) as CardConfig);
+    return html`<div class="section-title">${this._l("editor.section.alert")}</div>
+      <div class="help">${this._l("editor.alert_hint")}</div>
+      ${used
+        ? html`<ha-form
+              .hass=${this.hass}
+              .data=${{ alert_style: c.alert_style ?? "glow" }}
+              .schema=${[{ name: "alert_style", selector: select(this.hass, ["glow", "blink", "static"]) }]}
+              .computeLabel=${this._computeLabel}
+              @value-changed=${(ev: CustomEvent) => {
+                ev.stopPropagation();
+                const v = ev.detail.value.alert_style;
+                set({ alert_style: v === "glow" ? undefined : v });
+              }}
+            ></ha-form>
+            <div class="field-row">
+              <span class="field-label">${this._l("field.alert_color")}</span>
+              ${this._renderColorField("alert", c.alert_color, (col) => set({ alert_color: col }), this._l("field.alert_color"), "var(--error-color, #db4437)")}
+            </div>`
+        : nothing}`;
   }
 
   protected render(): TemplateResult | typeof nothing {
@@ -643,6 +750,7 @@ export class BestNumberCardEditor extends LitElement {
         .computeLabel=${this._computeLabel}
         @value-changed=${this._cardChanged}
       ></ha-form>
+      ${this._renderAlertSection()}
       <div class="section-title">${this._l("editor.section.entities")}</div>
       <div class="entities ${this._drag ? "is-dragging" : ""}">
         ${this._config.entities.map((e, i) => this._renderEntity(e, i))}
@@ -847,7 +955,7 @@ export class BestNumberCardEditor extends LitElement {
     }
     .stop {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 6px;
       margin-bottom: 6px;
       flex-wrap: wrap;
@@ -877,6 +985,92 @@ export class BestNumberCardEditor extends LitElement {
     }
     input.num {
       width: 84px;
+    }
+    .cf {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      min-width: 0;
+    }
+    .cf-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cf-row input.text {
+      flex: 1;
+      min-width: 60px;
+      width: 0;
+    }
+    .cf-swatch {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid var(--card-background-color, #fff);
+      box-shadow: 0 0 0 1px var(--divider-color, #ccc);
+      cursor: pointer;
+      padding: 0;
+    }
+    .cf.open .cf-swatch {
+      box-shadow: 0 0 0 2px var(--primary-color);
+    }
+    .cf-pop {
+      padding: 10px;
+      border: 1px solid var(--divider-color, #ccc);
+      border-radius: 10px;
+      background: var(--card-background-color, #fff);
+    }
+    .cf-label {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      margin-bottom: 6px;
+    }
+    .cf-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(26px, 1fr));
+      gap: 6px;
+    }
+    .cf-chip {
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 2px solid var(--card-background-color, #fff);
+      box-shadow: 0 0 0 1px var(--divider-color, #ccc);
+      cursor: pointer;
+      padding: 0;
+    }
+    .cf-chip.sel {
+      box-shadow: 0 0 0 2px var(--primary-color);
+    }
+    .cf-custom {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .cf-custom input[type="color"] {
+      width: 32px;
+      height: 32px;
+      border: none;
+      padding: 0;
+      background: none;
+      cursor: pointer;
+    }
+    .field-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .field-label {
+      flex: none;
+      width: 120px;
+      line-height: 36px;
+      font-size: 14px;
+      color: var(--secondary-text-color);
     }
     .color-input {
       display: inline-flex;
