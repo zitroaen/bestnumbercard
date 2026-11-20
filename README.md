@@ -2,6 +2,8 @@
 
 A Home Assistant dashboard card that looks and behaves like the built-in **sensor card**, with these additions:
 
+![Best Number Card](https://raw.githubusercontent.com/zitroaen/bestnumbercard/main/docs/screenshot.png)
+
 - **Multiple entities** in one card, each with its own line
 - **Color scales per series**: gradients, hard steps, or both (e.g. gradient up to 95 °C, then a jump to dark red)
 - **Separate y-axes** (scale groups) for series with different units or ranges
