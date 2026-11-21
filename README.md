@@ -120,6 +120,9 @@ entities:
 | `compact_icon` | `false` | Compact mode: show the card icon |
 | `compact_names` | `false` | Compact mode: show the entity names (small, above the values) |
 | `compact_graph` | `false` | Compact mode: faint graph in the background. This loads the history, which compact mode otherwise doesn't. |
+| `compact_font_size` | `20` | Compact mode: font size of the values in px (unit and names scale along) |
+| `compact_name_size` | – | Compact mode: font size of the card name in px |
+| `compact_text_color` | secondary text colour | Compact mode: colour of the card name and the entity names |
 | `compact_animation` | `true` | Animate switching between compact and full mode. Off for users with *reduce motion*. |
 | `remember_compact` | `true` | Remember a compact mode toggled by tapping, per device |
 | `statistics_threshold` | `6` | Use long-term statistics if `hours_to_show` is larger than this |

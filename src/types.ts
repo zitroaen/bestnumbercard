@@ -129,6 +129,12 @@ export interface CardConfig {
   compact_names?: boolean;
   /** Compact mode: faint graph in the background (loads the history). */
   compact_graph?: boolean;
+  /** Compact mode: font size of the values in px (default 20). */
+  compact_font_size?: number;
+  /** Compact mode: font size of the card name in px. */
+  compact_name_size?: number;
+  /** Compact mode: colour of the card name and the entity names. */
+  compact_text_color?: string;
   /** Animate switching between compact and full mode (default true). */
   compact_animation?: boolean;
   /** Remember a toggled compact state on this device (default true). */

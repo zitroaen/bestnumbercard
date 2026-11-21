@@ -487,8 +487,16 @@ export class BestNumberCard extends LitElement {
    * Smoothly resize the card between compact and full mode (FLIP: measure, switch, animate).
    * The graph keeps its final size meanwhile – only the visible part of the card grows or shrinks.
    */
-  private _animateHeight(card: HTMLElement, from: number): void {
+  private async _animateHeight(card: HTMLElement, from: number): Promise<void> {
     const to = card.getBoundingClientRect().height;
+    // the card has its final size right now (nothing painted yet): take the graph's final
+    // height before animating, so the graph does not jump at the end
+    const g = this.renderRoot.querySelector(".graph");
+    const gh = g ? Math.round(g.getBoundingClientRect().height) : 0;
+    if (gh && gh !== this._graphH) {
+      this._graphH = gh;
+      await this.updateComplete;
+    }
     if (Math.abs(to - from) < 2) return; // e.g. fixed height in a grid layout
     this._animating = true;
     const anim = card.animate([{ height: `${from}px` }, { height: `${to}px` }], {
@@ -932,7 +940,12 @@ export class BestNumberCard extends LitElement {
     const cfg = this._config!;
     const items = visible.filter((e) => e.show_value !== false);
     const first = visible[0] ?? cfg.entities[0];
-    return html`<div class="compact-row fade ${cfg.compact_graph && cfg.graph !== "none" ? "over-graph" : ""}">
+    const vars = [
+      Number(cfg.compact_font_size) > 0 ? `--bnc-cfs:${Number(cfg.compact_font_size)}px` : "",
+      Number(cfg.compact_name_size) > 0 ? `--bnc-cns:${Number(cfg.compact_name_size)}px` : "",
+      cfg.compact_text_color ? `--bnc-cnc:${cfg.compact_text_color}` : "",
+    ].filter(Boolean).join(";");
+    return html`<div class="compact-row fade ${cfg.compact_graph && cfg.graph !== "none" ? "over-graph" : ""}" style=${vars}>
       ${cfg.compact_icon ? html`<span class="icon compact-icon">${this._renderIcon(first, cfg.icon)}</span>` : nothing}
       ${cfg.name ? html`<span class="compact-name">${cfg.name}</span>` : nothing}
       <div class="compact-values">
@@ -1583,9 +1596,9 @@ export class BestNumberCard extends LitElement {
       min-width: 0;
     }
     .compact-label {
-      color: var(--secondary-text-color);
-      font-size: 11px;
-      line-height: 13px;
+      color: var(--bnc-cnc, var(--secondary-text-color));
+      font-size: max(11px, calc(var(--bnc-cfs, 20px) * 0.55));
+      line-height: 1.2;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1603,7 +1616,8 @@ export class BestNumberCard extends LitElement {
     }
     .compact-name {
       min-width: 3em;
-      color: var(--secondary-text-color);
+      color: var(--bnc-cnc, var(--secondary-text-color));
+      font-size: var(--bnc-cns, inherit);
       font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
@@ -1627,14 +1641,14 @@ export class BestNumberCard extends LitElement {
       display: inline-flex;
       align-items: baseline;
       gap: 3px;
-      line-height: 24px;
+      line-height: max(24px, calc(var(--bnc-cfs, 20px) * 1.2));
     }
     .compact-item .value {
-      font-size: 20px;
+      font-size: var(--bnc-cfs, 20px);
       margin: 0;
     }
     .compact-item .measurement {
-      font-size: 14px;
+      font-size: calc(var(--bnc-cfs, 20px) * 0.7);
     }
     .empty {
       color: var(--secondary-text-color);
