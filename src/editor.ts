@@ -121,6 +121,7 @@ export class BestNumberCardEditor extends LitElement {
       compact_icon: false,
       compact_names: false,
       compact_graph: false,
+      compact_animation: true,
       value_display: this._config!.entities.length === 1 ? "primary" : "all",
     };
   }
@@ -203,7 +204,10 @@ export class BestNumberCardEditor extends LitElement {
                   { name: "compact_icon", selector: { boolean: {} } },
                   { name: "compact_names", selector: { boolean: {} } },
                 ]),
-                ...(hasGraph ? [{ name: "compact_graph", selector: { boolean: {} } }] : []),
+                grid([
+                  ...(hasGraph ? [{ name: "compact_graph", selector: { boolean: {} } }] : []),
+                  ...(compactOnTap ? [{ name: "compact_animation", selector: { boolean: {} } }] : []),
+                ]),
               ],
             },
           ]
