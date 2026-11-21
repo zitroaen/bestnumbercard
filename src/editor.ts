@@ -148,7 +148,10 @@ export class BestNumberCardEditor extends LitElement {
             { name: "value_display", selector: select(h, ["all", "primary", "none"]) },
             ...(data.value_display === "all" || multi ? [{ name: "legend_icon", selector: select(h, ["dot", "icon", "none"]) }] : []),
           ]),
-          ...(hasGraph ? [{ name: "show_extrema", selector: { boolean: {} } }] : []),
+          grid([
+            ...(hasGraph ? [{ name: "show_extrema", selector: { boolean: {} } }] : []),
+            { name: "font_size", selector: { number: { mode: "box", min: 8, max: 96, step: 1, unit_of_measurement: "px" } } },
+          ]),
           { name: "compact", selector: { boolean: {} } },
         ],
       },
@@ -274,7 +277,15 @@ export class BestNumberCardEditor extends LitElement {
       grid([
         { name: "name", selector: { text: {} } },
         { name: "icon", selector: { icon: {} } },
+        { name: "font_size", selector: { number: { mode: "box", min: 8, max: 96, step: 1, unit_of_measurement: "px" } } },
+        ...(graphOn
+          ? [
+              { name: "show_extrema", selector: select(h, ["inherit", "on", "off"], "opt.tri_") },
+              { name: "band", selector: select(h, ["inherit", "on", "off"], "opt.tri_") },
+            ]
+          : []),
       ]),
+      ...(graphOn && this._usesStatistics && !e.attribute ? [{ name: "raw_history", selector: { boolean: {} } }] : []),
       {
         type: "expandable",
         flatten: true,
@@ -323,7 +334,6 @@ export class BestNumberCardEditor extends LitElement {
             ...(graphOn
               ? [
                   { name: "fill", selector: { boolean: {} } },
-                  { name: "band", selector: { boolean: {} } },
                 ]
               : []),
           ]),
@@ -693,12 +703,12 @@ export class BestNumberCardEditor extends LitElement {
           ${warnings.map((w) => html`<div class="warning">⚠ ${w}</div>`)}
           <ha-form
             .hass=${this.hass}
-            .data=${{ show_value: true, show_graph: true, ...e }}
+            .data=${{ show_value: true, show_graph: true, ...e, band: toTri(e.band), show_extrema: toTri(e.show_extrema) }}
             .schema=${this._entitySchema(e)}
             .computeLabel=${this._computeLabel}
             @value-changed=${(ev: CustomEvent) => {
               ev.stopPropagation();
-              const v = { ...ev.detail.value };
+              const v = { ...ev.detail.value, band: fromTri(ev.detail.value.band), show_extrema: fromTri(ev.detail.value.show_extrema) };
               if (v.show_value === true && e.show_value === undefined) delete v.show_value;
               if (v.show_graph === true && e.show_graph === undefined) delete v.show_graph;
               v.color_scale = e.color_scale;
@@ -1129,6 +1139,10 @@ export class BestNumberCardEditor extends LitElement {
     }
   `;
 }
+
+/** "inherit / on / off" selects for options that can also be set for the whole card */
+const toTri = (v: boolean | undefined) => (v === undefined ? "inherit" : v ? "on" : "off");
+const fromTri = (v: string | undefined) => (v === "on" ? true : v === "off" ? false : undefined);
 
 /** Best effort conversion for the native color picker. */
 function toHex(color: string, el?: Element): string {

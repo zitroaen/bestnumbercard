@@ -71,6 +71,12 @@ export interface EntityConfig {
   attribute?: string;
   /** Shaded min/max band around the line (overrides the card option). */
   band?: boolean;
+  /** Min / avg / max below the value (overrides the card option). */
+  show_extrema?: boolean;
+  /** Always load the full raw history (every peak, more load); statistics are only a preview. */
+  raw_history?: boolean;
+  /** Font size of the value in px (overrides the card option). */
+  font_size?: number;
   name?: string;
   icon?: string;
   unit?: string;
@@ -129,6 +135,8 @@ export interface CardConfig {
   x_axis?: "hover" | "always" | "none";
   /** Shaded band between the minimum and maximum of every point in time. */
   band?: boolean;
+  /** Font size of the values in px (default: like the sensor card). */
+  font_size?: number;
   /** Tap a legend entry to hide/show its line (default true). */
   legend_toggle?: boolean;
   /** How the card signals an alert: pulsing glow (default), hard blinking or a steady glow. */
