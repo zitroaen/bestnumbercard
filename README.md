@@ -193,6 +193,20 @@ The card is built to put as little load as possible on Home Assistant and the br
 - **Loading in stages:** first a flat line with a glow running over it, then the fast statistics as a preview, then the details. The glow stops when everything is loaded. Users with *reduce motion* don't get the animation.
 - The editor warns you when a sensor has no long-term statistics, because long time ranges then have to load the raw history.
 
+## Troubleshooting
+
+If a graph stays empty or shows "History could not be loaded":
+
+1. Open the browser console (F12 → Console). The card logs failed requests there, together with the error message from Home Assistant.
+2. For details about every request, enable the debug output in the console and reload the page:
+
+   ```js
+   localStorage.setItem("best-number-card-debug", "1")
+   ```
+
+   The card then logs each history subscription and how many states Home Assistant sent back. Turn it off with `localStorage.removeItem("best-number-card-debug")`.
+3. Check that the entity is recorded by the recorder, i.e. not excluded in `recorder:`. Otherwise there is no history to show.
+
 ## Development
 
 ```bash

@@ -25,6 +25,16 @@ const PERIOD_MS: Record<StatPeriod, number> = {
   day: 86_400_000,
 };
 
+/** Debug output in the browser console: localStorage.setItem("best-number-card-debug", "1") */
+const DEBUG = (() => {
+  try {
+    return globalThis.localStorage?.getItem("best-number-card-debug") === "1";
+  } catch {
+    return false;
+  }
+})();
+const debug = (...args: unknown[]) => DEBUG && console.info("[best-number-card]", ...args);
+
 /** How often old points are dropped from the stores (keeps memory flat on wall tablets). */
 const MAINTENANCE_MS = 10 * 60_000;
 
@@ -51,6 +61,8 @@ export class EntityStore {
   statsLoading?: Promise<void>;
   /** detail store: the full raw history replaces the statistics preview once it has arrived */
   preferRaw = false;
+  /** last error of the history subscription (shown in the card instead of "no data") */
+  error?: string;
   /** the first history message of the current subscription has arrived (or it failed) */
   rawLoaded = false;
   version = 0;
@@ -106,7 +118,8 @@ export class EntityStore {
     let data: SeriesData;
     if (this.preferRaw) {
       // statistics are only a quick preview until the detailed history is there
-      data = this.rawLoaded || !this.statT.length
+      // … and stays if the raw history came back empty (never worse than without details)
+      data = (this.rawLoaded && this.rawT.length) || !this.statT.length
         ? { t: this.rawT, v: this.rawV }
         : { t: this.statT, v: this.statV, lo: this.statLo, hi: this.statHi };
     } else if (!this.statT.length) data = { t: this.rawT, v: this.rawV };
@@ -267,6 +280,13 @@ export class DataSource {
     return this.stores.get(entity)?.series();
   }
 
+  /** errors of the history subscriptions, e.g. "sensor.x: Timeout" */
+  errors(): string[] {
+    const out: string[] = [];
+    for (const [sid, s] of this.stores) if (s.error) out.push(`${sid}: ${s.error}`);
+    return out;
+  }
+
   async start(): Promise<void> {
     const windowStart = this.windowStart;
     for (const s of this.stores.values()) {
@@ -359,6 +379,12 @@ export class DataSource {
       s.live = true;
       s.rawLoaded = s.rawLoaded && s.rawT.length > 0;
     }
+    const request = {
+      entities: entityIds,
+      from: new Date(from).toISOString(),
+      attributes,
+    };
+    debug("subscribe history/stream", request);
     const markLoaded = () => {
       if (!first) return;
       first = false;
@@ -372,6 +398,10 @@ export class DataSource {
     this.hass.connection
       .subscribeMessage<StreamMessage>(
         (msg) => {
+          if (DEBUG) {
+            const counts = Object.fromEntries(Object.entries(msg?.states ?? {}).map(([k, v]) => [k, v.length]));
+            debug(first ? "history (initial)" : "history (update)", counts, request);
+          }
           markLoaded();
           this.onStream(msg, entityIds);
         },
@@ -399,12 +429,18 @@ export class DataSource {
       )
       .then(
         (unsub) => {
+          for (const e of entityIds) this.stores.get(e)!.error = undefined;
           if (this.disposed || !this.subs.includes(sub)) unsub().catch(() => undefined);
           else sub.unsub = unsub;
         },
         (err) => {
-          console.warn("best-number-card: history subscription failed", err);
-          for (const e of entityIds) this.stores.get(e)!.live = false;
+          const text = err?.message ?? err?.code ?? String(err);
+          console.warn("best-number-card: history subscription failed", request, err);
+          for (const e of entityIds) {
+            const st = this.stores.get(e)!;
+            st.live = false;
+            st.error = String(text);
+          }
           markLoaded();
         },
       );
@@ -486,6 +522,7 @@ export class DataSource {
     } catch (err) {
       console.warn("best-number-card: statistics unavailable, using history", err);
     }
+    debug("statistics", this.period, Object.fromEntries(ids.map((id) => [id, result[id]?.length ?? 0])));
     for (const e of ids) {
       const s = this.stores.get(e)!;
       this.applyStats(s, result[e]);

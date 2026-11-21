@@ -515,9 +515,12 @@ export class BestNumberCard extends LitElement {
     const multi = shown.length > 1;
 
     // aggregate first, then build shared scales per group (only from series that are switched on)
+    // series with all details are always drawn peak-preserving (otherwise loading them would be pointless)
+    const nFor = (e: EntityConfig) => (e.raw_history ? Math.max(2, Math.round(plotW / 2)) : n);
+    const detailFor = (e: EntityConfig): 1 | 2 => (e.raw_history ? 2 : detail);
     const agg = ents.map((e) => {
       const data = this._ds!.series(this._sid(e)) ?? { t: [], v: [] };
-      return { e, b: aggregate(data, start, end, n) };
+      return { e, b: aggregate(data, start, end, nFor(e)) };
     });
     const groups = new Map<string, { lo: number; hi: number; first?: EntityConfig }>();
     for (const { e, b } of agg) {
@@ -573,7 +576,7 @@ export class BestNumberCard extends LitElement {
         cfg: e,
         index,
         buckets: b,
-        segs: toPoints(b, detail, plotW, y),
+        segs: toPoints(b, detailFor(e), plotW, y),
         lo,
         hi,
         y,
@@ -908,7 +911,13 @@ export class BestNumberCard extends LitElement {
         ? nothing
         : html`${this._renderSvg(model, loading)} ${this._renderEndLabels(model)}
           ${loading ? html`<span class="sr-only" role="status">${localize(this.hass, "card.loading")}</span>` : nothing}
-          ${model.hasData || loading ? nothing : html`<div class="nodata">${localize(this.hass, "card.no_data")}</div>`}
+          ${model.hasData || loading
+            ? nothing
+            : html`<div class="nodata">
+                ${this._ds?.errors().length
+                  ? html`${localize(this.hass, "card.load_error")}<small>${this._ds.errors().join(" · ")}</small>`
+                  : localize(this.hass, "card.no_data")}
+              </div>`}
           ${yAxis !== "none" && model.hasData ? this._renderAxes(model, yAxis) : nothing}
           ${xAxis !== "none" && model.hasData ? this._renderTimeAxis(model, xAxis) : nothing}
           ${this._renderTooltip(model)}`}
@@ -1428,6 +1437,9 @@ export class BestNumberCard extends LitElement {
       position: absolute;
       inset: 0;
       display: flex;
+      flex-direction: column;
+      text-align: center;
+      padding: 0 16px;
       align-items: center;
       justify-content: center;
       font-size: 12px;
