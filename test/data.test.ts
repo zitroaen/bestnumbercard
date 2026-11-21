@@ -241,3 +241,29 @@ test("detail series: statistics are a preview, then the full raw history replace
   assert.equal(ds.loaded, true);
   ds.dispose();
 });
+
+test("detail series: an empty raw history keeps the statistics preview", async () => {
+  const now = Date.now();
+  const t0 = Math.floor((now - 20 * H) / 300_000) * 300_000;
+  const { hass, subs } = fakeHass({ "sensor.power": [{ start: t0, end: t0 + 300_000, mean: 100 }] });
+  const ds = new DataSource(hass, { ...opts(["sensor.power"], () => {}, 24), detail: ["sensor.power"] });
+  await ds.start();
+  await flush();
+  subs[0].cb({ states: {} }); // HA answers, but without any states
+  assert.equal(ds.loaded, true);
+  assert.deepEqual(ds.series("sensor.power")!.v, [100]);
+  ds.dispose();
+});
+
+test("a failing history subscription is reported instead of silently showing no data", async () => {
+  const { hass } = fakeHass();
+  hass.connection.subscribeMessage = async () => {
+    throw { code: "unknown_error", message: "Database timeout" };
+  };
+  const ds = new DataSource(hass, opts(["sensor.a"]));
+  await ds.start();
+  await flush();
+  assert.equal(ds.loaded, true);
+  assert.deepEqual(ds.errors(), ["sensor.a: Database timeout"]);
+  ds.dispose();
+});
