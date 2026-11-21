@@ -86,6 +86,7 @@ test("two cards with the same entity share one subscription", async () => {
 
   // the owner goes away: the other card takes over, asking only for the gap
   ds1.dispose();
+  await flush();
   assert.equal(subs[0].active, false);
   assert.equal(subs.length, 2);
   const from = Date.parse(subs[1].msg.start_time);
@@ -99,6 +100,7 @@ test("after a lost connection only the gap is requested", async () => {
   await ds.start();
   const windowStart = Date.parse(subs[0].msg.start_time);
   assert.ok(Date.now() - windowStart > 1.9 * H);
+  subs[0].cb({ states: { "sensor.a": [{ s: "1", lu: Date.now() / 1000 - 60 }] } }); // history has arrived
   emit("disconnected");
   emit("ready");
   assert.equal(subs.length, 2);
@@ -158,6 +160,7 @@ test("taking over while still loading statistics does not subscribe twice", asyn
   const starting = ds2.start(); // registers as subscriber, then awaits nothing (stats cached)
   ds1.dispose(); // ds2 adopts the entity
   await starting;
+  await flush();
   const active = subs.filter((s) => s.active);
   assert.equal(active.length, 1, "exactly one live subscription");
   ds2.dispose();
@@ -266,4 +269,37 @@ test("a failing history subscription is reported instead of silently showing no 
   assert.equal(ds.loaded, true);
   assert.deepEqual(ds.errors(), ["sensor.a: Database timeout"]);
   ds.dispose();
+});
+
+test("a card removed before its history arrived does not mark the data as complete", async () => {
+  const { hass, subs, emit } = fakeHass();
+  const ds1 = new DataSource(hass, opts(["sensor.a"], () => {}, 24));
+  await ds1.start();
+  ds1.dispose(); // e.g. the dashboard re-attached the card while the history was still loading
+  const ds2 = new DataSource(hass, opts(["sensor.a"], () => {}, 24));
+  try {
+    await ds2.start();
+    const from = Date.parse(subs[subs.length - 1].msg.start_time);
+    assert.ok(Date.now() - from > 23.9 * H, "the whole window is requested again, not just the last seconds");
+
+    // same for a lost connection before the first answer
+    emit("disconnected");
+    emit("ready");
+    const again = Date.parse(subs[subs.length - 1].msg.start_time);
+    assert.ok(Date.now() - again > 23.9 * H);
+  } finally {
+    ds2.dispose();
+  }
+});
+
+test("cards removed together do not hand the subscription over to each other", async () => {
+  const { hass, subs } = fakeHass();
+  const a = new DataSource(hass, opts(["sensor.a"]));
+  const b = new DataSource(hass, opts(["sensor.a"]));
+  await a.start();
+  await b.start();
+  a.dispose();
+  b.dispose();
+  await flush();
+  assert.equal(subs.length, 1, "no extra subscription for a card that is going away anyway");
 });
