@@ -110,7 +110,7 @@ entities:
 | `end_labels` | `none` | Label at the end of each line: `none`, `value`, `icon`, `icon_value` |
 | `tooltip` | `true` | Tooltip on hover. On touch screens: swipe horizontally across the graph. |
 | `y_axis` | `hover` | Min/max labels of each y-axis: `hover`, `always`, `none` |
-| `font_size` | layout default | Font size of the values in px (can be set per entity) |
+| `font_size` | layout default | Font size of the values in px, in full and compact mode (can be set per entity) |
 | `x_axis` | `hover` | Relative time labels below the graph: `hover`, `always`, `none` |
 | `band` | `false` | Shaded min/max band around every line (can be set per entity) |
 | `show_thresholds` | `false` | Dashed lines with labels at the hard jumps of the color scales |
@@ -120,7 +120,7 @@ entities:
 | `compact_icon` | `false` | Compact mode: show the card icon |
 | `compact_names` | `false` | Compact mode: show the entity names (small, above the values) |
 | `compact_graph` | `false` | Compact mode: faint graph in the background. This loads the history, which compact mode otherwise doesn't. |
-| `compact_font_size` | `20` | Compact mode: font size of the values in px (unit and names scale along) |
+| `compact_font_size` | `20` | Compact mode: font size of the values in px (unit and names scale along). Order: entity `font_size` > `compact_font_size` > card `font_size` > 20 px. |
 | `compact_name_size` | – | Compact mode: font size of the card name in px |
 | `compact_animation` | `true` | Animate switching between compact and full mode. Off for users with *reduce motion*. |
 | `remember_compact` | `true` | Remember a compact mode toggled by tapping, per device |
@@ -144,7 +144,7 @@ When the tap action is `more-info`, tapping a value opens that value's entity.
 | `attribute` | Show this attribute instead of the state, e.g. `temperature` of a `climate` entity. Attributes have no long-term statistics, so their history is always loaded with attributes. |
 | `band` | Min/max band for this line (overrides the card option) |
 | `show_extrema` | Min / avg / max below this value (overrides the card option) |
-| `font_size` | Font size of this value in px |
+| `font_size` | Font size of this value in px (full and compact mode) |
 | `raw_history` | Always load the **full raw history**, so every short peak is visible, like in the built-in card. This puts more load on the system. For long time ranges the fast statistics are shown as a preview until the details have arrived. |
 | `name`, `icon`, `unit` | Overrides |
 | `decimals` | Number of decimals (default: the entity's display precision) |

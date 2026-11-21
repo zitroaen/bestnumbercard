@@ -952,7 +952,8 @@ export class BestNumberCard extends LitElement {
     const items = visible.filter((e) => e.show_value !== false);
     const first = visible[0] ?? cfg.entities[0];
     const vars = [
-      Number(cfg.compact_font_size) > 0 ? `--bnc-cfs:${Number(cfg.compact_font_size)}px` : "",
+      // card-wide size in compact mode: compact_font_size, else the card's font_size
+      Number(cfg.compact_font_size ?? cfg.font_size) > 0 ? `--bnc-cfs:${Number(cfg.compact_font_size ?? cfg.font_size)}px` : "",
       Number(cfg.compact_name_size) > 0 ? `--bnc-cns:${Number(cfg.compact_name_size)}px` : "",
     ].filter(Boolean).join(";");
     return html`<div class="compact-row fade ${cfg.compact_graph && cfg.graph !== "none" ? "over-graph" : ""}" style=${vars}>
@@ -961,7 +962,12 @@ export class BestNumberCard extends LitElement {
       <div class="compact-values">
         ${items.length
           ? items.map(
-              (e) => html`<span class="compact-item" data-entity=${e.entity} title=${this._name(e)}>
+              (e) => html`<span
+                class="compact-item"
+                data-entity=${e.entity}
+                title=${this._name(e)}
+                style=${Number(e.font_size) > 0 ? `--bnc-cfs:${Number(e.font_size)}px` : ""}
+              >
                 ${items.length > 1 || cfg.legend_icon === "icon" ? this._renderMarker(e) : nothing}
                 <span class="compact-text">
                   ${cfg.compact_names ? html`<span class="compact-label">${this._name(e)}</span>` : nothing}
