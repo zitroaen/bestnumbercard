@@ -392,14 +392,22 @@ export class BestNumberCard extends LitElement {
 
   private _formatState(e: EntityConfig): string {
     const st = this._state(e);
-    if (!st) return localize(this.hass, "card.not_found");
+    // own text for unavailable / unknown / missing entities, e.g. "–"
+    const custom = e.unavailable_text ?? this._config?.unavailable_text;
+    if (!st) return custom ?? localize(this.hass, "card.not_found");
     const raw = this._raw(e) ?? "";
     const v = Number(raw);
     if (raw === "" || !Number.isFinite(v)) {
+      if (custom !== undefined) return custom;
       if (e.attribute) return raw || "–";
       return (this.hass as any)?.formatEntityState?.(st) ?? st.state;
     }
     return formatNumber(this.hass, v, this._decimals(e, raw));
+  }
+
+  /** unit next to the current value – hidden while there is no number ("Unavailable W") */
+  private _valueUnit(e: EntityConfig): string {
+    return Number.isFinite(this._current(e)) ? this._unit(e) : "";
   }
 
   private _formatValue(e: EntityConfig, v: number): string {
@@ -543,7 +551,7 @@ export class BestNumberCard extends LitElement {
       let w = 8;
       if (mode === "icon" || mode === "icon_value") w += 20;
       if (mode === "value" || mode === "icon_value") {
-        const text = `${this._formatState(e)} ${this._unit(e)}`;
+        const text = `${this._formatState(e)} ${this._valueUnit(e)}`;
         w += text.length * 7 + 4;
       }
       max = Math.max(max, w);
@@ -906,7 +914,7 @@ export class BestNumberCard extends LitElement {
       return html`${header}
         <div class="info fade" data-entity=${first.entity} style=${this._sizeStyle(first)}>
           <span class="value" style=${this._valueStyle(first)}>${this._formatState(first)}</span>
-          <span class="measurement">${this._unit(first)}</span>
+          <span class="measurement">${this._valueUnit(first)}</span>
           ${this._renderExtrema(first, model)}
         </div>`;
     }
@@ -930,7 +938,7 @@ export class BestNumberCard extends LitElement {
               : nothing}
             <div class="item-value">
               <span class="value" style=${this._valueStyle(e)}>${this._formatState(e)}</span>
-              <span class="measurement">${this._unit(e)}</span>
+              <span class="measurement">${this._valueUnit(e)}</span>
             </div>
             ${this._renderExtrema(e, model)}
           </div>`;
@@ -959,7 +967,7 @@ export class BestNumberCard extends LitElement {
                   ${cfg.compact_names ? html`<span class="compact-label">${this._name(e)}</span>` : nothing}
                   <span class="vm">
                     <span class="value" style=${this._valueStyle(e)}>${this._formatState(e)}</span>
-                    <span class="measurement">${this._unit(e)}</span>
+                    <span class="measurement">${this._valueUnit(e)}</span>
                   </span>
                 </span>
               </span>`,
@@ -1142,7 +1150,7 @@ export class BestNumberCard extends LitElement {
       return html`<div class="end-label" data-entity=${s.cfg.entity} style="left:${m.plotW + 4}px;top:${y}px;color:${color}">
         ${mode === "icon" || mode === "icon_value" ? this._renderIcon(s.cfg) : nothing}
         ${mode === "value" || mode === "icon_value"
-          ? html`<span>${this._formatState(s.cfg)}<small>${this._unit(s.cfg) ? ` ${this._unit(s.cfg)}` : ""}</small></span>`
+          ? html`<span>${this._formatState(s.cfg)}<small>${this._valueUnit(s.cfg) ? ` ${this._valueUnit(s.cfg)}` : ""}</small></span>`
           : nothing}
       </div>`;
     })}`;

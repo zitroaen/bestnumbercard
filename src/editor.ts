@@ -156,6 +156,7 @@ export class BestNumberCardEditor extends LitElement {
             ...(hasGraph ? [{ name: "show_extrema", selector: { boolean: {} } }] : []),
             { name: "font_size", selector: { number: { mode: "box", min: 8, max: 96, step: 1, unit_of_measurement: "px" } } },
           ]),
+          { name: "unavailable_text", selector: { text: {} } },
           { name: "compact", selector: { boolean: {} } },
         ],
       },
@@ -347,6 +348,7 @@ export class BestNumberCardEditor extends LitElement {
           grid([
             { name: "unit", selector: { text: {} } },
             { name: "decimals", selector: { number: { mode: "box", min: 0, max: 6, step: 1 } } },
+            { name: "unavailable_text", selector: { text: {} } },
             ...(graphOn
               ? [
                   { name: "line_width", selector: { number: { mode: "box", min: 0.5, max: 12, step: 0.5 } } },

@@ -77,6 +77,8 @@ export interface EntityConfig {
   raw_history?: boolean;
   /** Font size of the value in px (overrides the card option). */
   font_size?: number;
+  /** Text shown instead of "unavailable" (overrides the card option), e.g. "–". */
+  unavailable_text?: string;
   name?: string;
   icon?: string;
   unit?: string;
@@ -133,6 +135,8 @@ export interface CardConfig {
   compact_font_size?: number;
   /** Compact mode: font size of the card name in px. */
   compact_name_size?: number;
+  /** Text shown instead of "unavailable" / "unknown", e.g. "–" (default: HA's translated state). */
+  unavailable_text?: string;
   /** Colour of the card name and the entity names (both modes). */
   text_color?: string;
   /** @deprecated older name of `text_color` */
