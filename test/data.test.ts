@@ -215,3 +215,29 @@ test("missing statistics rows (sensor unavailable) become a gap", async () => {
   assert.ok(Number.isNaN(s.v[1]));
   ds.dispose();
 });
+
+test("detail series: statistics are a preview, then the full raw history replaces them", async () => {
+  const now = Date.now();
+  const t0 = Math.floor((now - 20 * H) / 300_000) * 300_000;
+  const { hass, subs, ws } = fakeHass({ "sensor.power": [{ start: t0, end: t0 + 300_000, mean: 100, min: 50, max: 900 }] });
+  const ds = new DataSource(hass, { ...opts(["sensor.power"], () => {}, 24), detail: ["sensor.power"] });
+  await ds.start();
+  await flush();
+  // raw history is requested for the WHOLE window, statistics only once as a preview
+  assert.ok(now - Date.parse(subs[0].msg.start_time) > 23.9 * H);
+  assert.equal(ws.length, 1);
+  assert.deepEqual(ds.series("sensor.power")!.v, [100], "preview from statistics");
+  assert.equal(ds.loaded, false, "still loading the details");
+  subs[0].cb({
+    states: {
+      "sensor.power": [
+        { s: "120", lu: (now - 10 * H) / 1000 },
+        { s: "2500", lu: (now - 10 * H + 20_000) / 1000 },
+        { s: "130", lu: (now - 10 * H + 40_000) / 1000 },
+      ],
+    },
+  });
+  assert.deepEqual(ds.series("sensor.power")!.v, [120, 2500, 130], "the short peak is there");
+  assert.equal(ds.loaded, true);
+  ds.dispose();
+});

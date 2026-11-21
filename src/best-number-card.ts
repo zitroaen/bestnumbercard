@@ -281,7 +281,8 @@ export class BestNumberCard extends LitElement {
     const needed = !this._compact && (cfg.graph ?? DEFAULTS.graph) !== "none";
     const ids = needed ? [...new Set(this._graphEntities().map((e) => this._sid(e)))] : [];
     const threshold = Number(cfg.statistics_threshold ?? DEFAULTS.statistics_threshold);
-    const key = ids.length ? JSON.stringify([ids, this._hours, threshold, cfg.statistics_period ?? "auto"]) : "";
+    const detail = needed ? this._graphEntities().filter((e) => e.raw_history).map((e) => this._sid(e)) : [];
+    const key = ids.length ? JSON.stringify([ids, detail, this._hours, threshold, cfg.statistics_period ?? "auto"]) : "";
     if (key === this._dsKey) {
       this._ds?.setHass(this.hass);
       return;
@@ -294,6 +295,7 @@ export class BestNumberCard extends LitElement {
       hoursToShow: this._hours,
       statisticsThreshold: threshold,
       statisticsPeriod: cfg.statistics_period,
+      detail,
       onChange: () => this._scheduleTick(),
     });
     this._dsStarted = Date.now();
@@ -786,12 +788,18 @@ export class BestNumberCard extends LitElement {
     return html`<span class="marker dot" style="background:${color}"></span>`;
   }
 
+  /** font size of the value (entity > card > default of the layout) */
+  private _sizeStyle(e?: EntityConfig): string {
+    const fs = Number(e?.font_size ?? this._config!.font_size);
+    return fs > 0 ? `--bnc-fs:${fs}px` : "";
+  }
+
   private _valueStyle(e: EntityConfig): string {
     return e.color_scale?.length ? `color:${this._colorFor(e, this._current(e))}` : "";
   }
 
   private _renderExtrema(e: EntityConfig, model?: GraphModel): TemplateResult | typeof nothing {
-    if (!this._config!.show_extrema || !model) return nothing;
+    if (!(e.show_extrema ?? this._config!.show_extrema) || !model) return nothing;
     const s = model.series.find((x) => x.cfg === e);
     if (!s || !Number.isFinite(s.ext.min)) return nothing;
     const l = (k: string) => localize(this.hass, k);
@@ -826,7 +834,7 @@ export class BestNumberCard extends LitElement {
 
     if (display === "primary") {
       return html`${header}
-        <div class="info fade" data-entity=${first.entity}>
+        <div class="info fade" data-entity=${first.entity} style=${this._sizeStyle(first)}>
           <span class="value" style=${this._valueStyle(first)}>${this._formatState(first)}</span>
           <span class="measurement">${this._unit(first)}</span>
           ${this._renderExtrema(first, model)}
@@ -840,7 +848,7 @@ export class BestNumberCard extends LitElement {
       <div class="values fade ${many ? "multi" : ""} ${showHeader ? "" : "noheader"}">
         ${items.map((e) => {
           const off = this._off.has(this._sid(e));
-          return html`<div class="item ${off ? "off" : ""}" data-entity=${e.entity}>
+          return html`<div class="item ${off ? "off" : ""}" data-entity=${e.entity} style=${this._sizeStyle(e)}>
             ${many
               ? html`<div
                   class="item-name ${toggle ? "toggle" : ""}"
@@ -883,7 +891,8 @@ export class BestNumberCard extends LitElement {
 
   private _renderGraph(model?: GraphModel): TemplateResult {
     const height = this._graphHeight();
-    const loading = !model || (!this._ds?.loaded && !model.hasData);
+    // stages: flat line → statistics preview → details; the glow runs until everything is loaded
+    const loading = !this._ds?.loaded;
     const yAxis = this._config!.y_axis ?? DEFAULTS.y_axis;
     const xAxis = this._config!.x_axis ?? DEFAULTS.x_axis;
     return html`<div
@@ -895,13 +904,14 @@ export class BestNumberCard extends LitElement {
       @pointercancel=${this._onGraphUp}
       @pointerleave=${this._onLeave}
     >
-      ${loading
-        ? html`<div class="loading" aria-label=${localize(this.hass, "card.loading")}></div>`
-        : html`${this._renderSvg(model!)} ${this._renderEndLabels(model!)}
-          ${model!.hasData ? nothing : html`<div class="nodata">${localize(this.hass, "card.no_data")}</div>`}
-          ${yAxis !== "none" && model!.hasData ? this._renderAxes(model!, yAxis) : nothing}
-          ${xAxis !== "none" && model!.hasData ? this._renderTimeAxis(model!, xAxis) : nothing}
-          ${this._renderTooltip(model!)}`}
+      ${!model
+        ? nothing
+        : html`${this._renderSvg(model, loading)} ${this._renderEndLabels(model)}
+          ${loading ? html`<span class="sr-only" role="status">${localize(this.hass, "card.loading")}</span>` : nothing}
+          ${model.hasData || loading ? nothing : html`<div class="nodata">${localize(this.hass, "card.no_data")}</div>`}
+          ${yAxis !== "none" && model.hasData ? this._renderAxes(model, yAxis) : nothing}
+          ${xAxis !== "none" && model.hasData ? this._renderTimeAxis(model, xAxis) : nothing}
+          ${this._renderTooltip(model)}`}
     </div>`;
   }
 
@@ -932,12 +942,31 @@ export class BestNumberCard extends LitElement {
     </div>`;
   }
 
-  private _renderSvg(m: GraphModel): TemplateResult {
+  private _renderSvg(m: GraphModel, loading = false): TemplateResult {
     const smooth = this._config!.smoothing ?? DEFAULTS.smoothing;
     const hover = this._hoverX;
     const shown = m.series.filter((s) => !s.off);
+    // while nothing is there yet: a flat line per series, like the built-in sensor card
+    const flatY = (s: SeriesModel) => m.height - s.lineWidth / 2 - 2;
+    const shapes = (s: SeriesModel) =>
+      m.hasData ? s.segs.map((seg) => linePath(seg, smooth)) : [`M0,${flatY(s)}L${m.plotW},${flatY(s)}`];
+    const glowW = Math.max(60, m.plotW * 0.35);
     return html`<svg width=${m.width} height=${m.height} viewBox="0 0 ${m.width} ${m.height}">
       <defs>
+        ${loading
+          ? svg`<linearGradient id=${`${this._uid}-glow`} x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0" stop-color="#fff" stop-opacity="0"></stop>
+                <stop offset="0.5" stop-color="#fff" stop-opacity="0.9"></stop>
+                <stop offset="1" stop-color="#fff" stop-opacity="0"></stop>
+              </linearGradient>
+              <mask id=${`${this._uid}-glowmask`}>
+                ${shown.map((s) =>
+                  shapes(s).map(
+                    (d) => svg`<path d=${d} fill="none" stroke="#fff" stroke-width=${s.lineWidth + 3} stroke-linecap="round"></path>`,
+                  ),
+                )}
+              </mask>`
+          : nothing}
         ${shown.map((s) =>
           s.gradId
             ? svg`<linearGradient id=${s.gradId} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1=${s.y(s.lo)} y2=${s.y(s.hi)}>
@@ -973,6 +1002,18 @@ export class BestNumberCard extends LitElement {
           )}
         </g>`;
       })}
+      ${!m.hasData && loading
+        ? shown.map(
+            (s) =>
+              svg`<path class="line placeholder" d=${shapes(s)[0]} style="stroke:${s.color};stroke-width:${s.lineWidth}px"></path>`,
+          )
+        : nothing}
+      ${loading
+        ? svg`<g mask=${`url(#${this._uid}-glowmask)`}>
+            <rect class="glow" x=${-glowW} y="0" width=${glowW} height=${m.height} fill=${`url(#${this._uid}-glow)`}
+              style=${`--sweep:${m.plotW + glowW}px`}></rect>
+          </g>`
+        : nothing}
       ${hover !== null
         ? svg`<line class="cursor" x1=${hover} x2=${hover} y1="0" y2=${m.height}></line>
           ${shown.map((s) => {
@@ -1131,19 +1172,19 @@ export class BestNumberCard extends LitElement {
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      line-height: 28px;
+      line-height: max(28px, calc(var(--bnc-fs, 28px) * 1.1));
     }
     .info.empty {
       color: var(--secondary-text-color);
       padding-top: 12px;
     }
     .value {
-      font-size: 28px;
+      font-size: var(--bnc-fs, 28px);
       margin-right: 4px;
       margin-inline-end: 4px;
     }
     .measurement {
-      font-size: 18px;
+      font-size: calc(var(--bnc-fs, 28px) * 0.64);
       color: var(--secondary-text-color);
     }
     .extrema {
@@ -1166,10 +1207,10 @@ export class BestNumberCard extends LitElement {
       margin-top: 0;
     }
     .values.multi .value {
-      font-size: 24px;
+      font-size: var(--bnc-fs, 24px);
     }
     .values.multi .measurement {
-      font-size: 15px;
+      font-size: calc(var(--bnc-fs, 24px) * 0.62);
     }
     .item {
       min-width: 0;
@@ -1182,7 +1223,7 @@ export class BestNumberCard extends LitElement {
       text-decoration: line-through;
     }
     .item-value {
-      line-height: 28px;
+      line-height: max(28px, calc(var(--bnc-fs, 24px) * 1.15));
       white-space: nowrap;
     }
     .item-name {
@@ -1356,31 +1397,32 @@ export class BestNumberCard extends LitElement {
       font-size: 11px;
       opacity: 0.8;
     }
-    .loading {
-      position: absolute;
-      inset: 20% 0 0 0;
-      background: linear-gradient(
-        90deg,
-        transparent 0%,
-        color-mix(in srgb, var(--secondary-text-color) 12%, transparent) 50%,
-        transparent 100%
-      );
-      background-size: 200% 100%;
-      animation: bnc-shimmer 1.4s linear infinite;
-      border-radius: 0 0 12px 12px;
+    .placeholder {
+      opacity: 0.35;
     }
-    @keyframes bnc-shimmer {
+    .glow {
+      animation: bnc-sweep 1.6s ease-in-out infinite;
+    }
+    @keyframes bnc-sweep {
       from {
-        background-position: 100% 0;
+        transform: translateX(0);
       }
       to {
-        background-position: -100% 0;
+        transform: translateX(var(--sweep));
       }
     }
     @media (prefers-reduced-motion: reduce) {
-      .loading {
+      .glow {
         animation: none;
+        opacity: 0;
       }
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
     }
     .nodata {
       position: absolute;

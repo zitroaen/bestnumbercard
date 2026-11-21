@@ -110,6 +110,7 @@ entities:
 | `end_labels` | `none` | Label at the end of each line: `none`, `value`, `icon`, `icon_value` |
 | `tooltip` | `true` | Tooltip on hover. On touch screens: swipe horizontally across the graph. |
 | `y_axis` | `hover` | Min/max labels of each y-axis: `hover`, `always`, `none` |
+| `font_size` | layout default | Font size of the values in px (can be set per entity) |
 | `x_axis` | `hover` | Relative time labels below the graph: `hover`, `always`, `none` |
 | `band` | `false` | Shaded min/max band around every line (can be set per entity) |
 | `show_thresholds` | `false` | Dashed lines with labels at the hard jumps of the color scales |
@@ -134,6 +135,9 @@ When the tap action is `more-info`, tapping a value opens that value's entity.
 | `entity` | Entity id |
 | `attribute` | Show this attribute instead of the state, e.g. `temperature` of a `climate` entity. Attributes have no long-term statistics, so their history is always loaded with attributes. |
 | `band` | Min/max band for this line (overrides the card option) |
+| `show_extrema` | Min / avg / max below this value (overrides the card option) |
+| `font_size` | Font size of this value in px |
+| `raw_history` | Always load the **full raw history**, so every short peak is visible, like in the built-in card. This puts more load on the system. For long time ranges the fast statistics are shown as a preview until the details have arrived. |
 | `name`, `icon`, `unit` | Overrides |
 | `decimals` | Number of decimals (default: the entity's display precision) |
 | `color` | Line color without a color scale (any CSS color, also `var(--red-color)`) |
@@ -186,6 +190,7 @@ The card is built to put as little load as possible on Home Assistant and the br
 - **Long-running dashboards:** points that scrolled out of the time range are dropped regularly, so memory stays flat even after days. In a background tab the graph is not redrawn at all.
 - **Rendering:** data is aggregated to about one point per pixel in O(n), with time-weighted means and no lost peaks in `detail: 2`. Redraws are throttled to the time span one pixel represents, so even very dense sensors do not cause constant redraws. Header values update immediately.
 - Hidden entities and cards in compact mode do not load any history.
+- **Loading in stages:** first a flat line with a glow running over it, then the fast statistics as a preview, then the details. The glow stops when everything is loaded. Users with *reduce motion* don't get the animation.
 - The editor warns you when a sensor has no long-term statistics, because long time ranges then have to load the raw history.
 
 ## Development

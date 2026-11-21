@@ -49,6 +49,8 @@ export class EntityStore {
   rawUntil = NaN;
   statsLoaded = false;
   statsLoading?: Promise<void>;
+  /** detail store: the full raw history replaces the statistics preview once it has arrived */
+  preferRaw = false;
   /** the first history message of the current subscription has arrived (or it failed) */
   rawLoaded = false;
   version = 0;
@@ -102,7 +104,12 @@ export class EntityStore {
   series(): SeriesData {
     if (this.memo?.version === this.version) return this.memo.data;
     let data: SeriesData;
-    if (!this.statT.length) data = { t: this.rawT, v: this.rawV };
+    if (this.preferRaw) {
+      // statistics are only a quick preview until the detailed history is there
+      data = this.rawLoaded || !this.statT.length
+        ? { t: this.rawT, v: this.rawV }
+        : { t: this.statT, v: this.statV, lo: this.statLo, hi: this.statHi };
+    } else if (!this.statT.length) data = { t: this.rawT, v: this.rawV };
     else if (!this.rawT.length) data = { t: this.statT, v: this.statV, lo: this.statLo, hi: this.statHi };
     else {
       // statistics buckets that start before the raw data begins, raw data from there on
@@ -196,6 +203,8 @@ export interface DataSourceOptions {
   hoursToShow: number;
   statisticsThreshold: number;
   statisticsPeriod?: string;
+  /** series that always load the full raw history (statistics only as a quick preview) */
+  detail?: string[];
   onChange: () => void;
 }
 
@@ -215,15 +224,26 @@ export class DataSource {
     this.entities = [...new Set(opts.entities)];
     this.useStatistics = opts.hoursToShow > opts.statisticsThreshold;
     this.period = choosePeriod(opts.hoursToShow, opts.statisticsPeriod);
+    this.detail = new Set(opts.detail ?? []);
     for (const e of this.entities) {
       // attributes have no long-term statistics
-      const mode = this.statsFor(e) ? this.period : "raw";
-      this.stores.set(e, getStore(`${e}|${opts.hoursToShow}|${mode}`));
+      const mode = this.statsFor(e) ? this.period : this.previewFor(e) ? "detail" : "raw";
+      const store = getStore(`${e}|${opts.hoursToShow}|${mode}`);
+      store.preferRaw = mode === "detail";
+      this.stores.set(e, store);
     }
   }
 
+  private readonly detail: Set<string>;
+
+  /** statistics + short raw tail */
   private statsFor(sid: string): boolean {
-    return this.useStatistics && !attributeOf(sid);
+    return this.useStatistics && !attributeOf(sid) && !this.detail.has(sid);
+  }
+
+  /** full raw history, with statistics as a quick preview while it loads */
+  private previewFor(sid: string): boolean {
+    return this.useStatistics && !attributeOf(sid) && this.detail.has(sid);
   }
 
   get windowStart(): number {
@@ -254,6 +274,18 @@ export class DataSource {
       s.prune(windowStart);
     }
     this.listenToConnection();
+
+    // detail series: show the (fast) statistics as a preview, don't wait for them
+    const preview = this.entities.filter((e) => {
+      const st = this.stores.get(e)!;
+      return this.previewFor(e) && !st.statsLoaded && !st.statsLoading && !st.rawLoaded;
+    });
+    if (preview.length) {
+      const p = this.loadStatistics(preview, windowStart).then(() => {
+        for (const e of preview) this.stores.get(e)!.notifySubscribers();
+      });
+      for (const e of preview) this.stores.get(e)!.statsLoading = p;
+    }
 
     if (this.useStatistics) {
       const waits: Promise<void>[] = [];
@@ -304,7 +336,7 @@ export class DataSource {
         // resume after the last known point (the stream also delivers the state at `from`)
         from = Number.isFinite(s.rawUntil) ? s.rawUntil : s.rawT[s.rawT.length - 1];
       } else {
-        from = Number.isFinite(s.statsEnd) ? s.statsEnd : windowStart;
+        from = Number.isFinite(s.statsEnd) && !s.preferRaw ? s.statsEnd : windowStart;
         s.rawFrom = from;
       }
       // round down to the minute so that cards started at the same time share groups
@@ -333,6 +365,7 @@ export class DataSource {
       for (const e of entityIds) {
         const s = this.stores.get(e)!;
         s.rawLoaded = true;
+        s.version++; // a detail store switches from the preview to the raw history
         s.notifySubscribers();
       }
     };
