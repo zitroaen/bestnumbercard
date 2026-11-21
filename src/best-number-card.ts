@@ -285,7 +285,8 @@ export class BestNumberCard extends LitElement {
   private _syncDataSource(): void {
     const cfg = this._config;
     if (!cfg || !this.hass || !this.isConnected) return;
-    const needed = !this._compact && (cfg.graph ?? DEFAULTS.graph) !== "none";
+    // compact mode loads history only if its background graph is wanted
+    const needed = (!this._compact || !!cfg.compact_graph) && (cfg.graph ?? DEFAULTS.graph) !== "none";
     const ids = needed ? [...new Set(this._graphEntities().map((e) => this._sid(e)))] : [];
     const threshold = Number(cfg.statistics_threshold ?? DEFAULTS.statistics_threshold);
     const detail = needed ? this._graphEntities().filter((e) => e.raw_history).map((e) => this._sid(e)) : [];
@@ -496,7 +497,7 @@ export class BestNumberCard extends LitElement {
 
   private _labelMargin(series: EntityConfig[]): number {
     const mode = this._config?.end_labels ?? DEFAULTS.end_labels;
-    if (mode === "none") return 0;
+    if (mode === "none" || this._compact) return 0;
     let max = 0;
     for (const e of series) {
       let w = 8;
@@ -518,7 +519,7 @@ export class BestNumberCard extends LitElement {
     const plotW = Math.max(20, this._width - this._labelMargin(ents.filter((e) => !this._off.has(this._sid(e)))));
     const detail = (Number(cfg.detail) === 2 ? 2 : 1) as 1 | 2;
     const key = JSON.stringify([
-      this._tick, this._cfgVersion, this._dsKey, this._width, height, plotW, detail, [...this._off], this._ds.loaded,
+      this._tick, this._cfgVersion, this._dsKey, this._width, height, plotW, detail, [...this._off], this._ds.loaded, this._compact,
     ]);
     if (this._model?.key === key) return this._model;
 
@@ -575,8 +576,9 @@ export class BestNumberCard extends LitElement {
     const series: SeriesModel[] = agg.map(({ e, b }, index) => {
       const { lo, hi } = groups.get(e.scale || "default")!;
       const lineWidth = Number(e.line_width) > 0 ? Number(e.line_width) : multi ? 3 : 4;
-      const top = lineWidth / 2 + 2;
-      const bottom = height - lineWidth / 2 - 2;
+      const inset = this._compact ? 8 : 2; // background graph: keep the lines off the edges
+      const top = lineWidth / 2 + inset;
+      const bottom = height - lineWidth / 2 - inset;
       const y = (v: number) => {
         const c = Math.min(Math.max(v, lo), hi);
         return bottom - ((c - lo) / (hi - lo)) * (bottom - top);
@@ -621,7 +623,7 @@ export class BestNumberCard extends LitElement {
     }
 
     const thresholds: ThresholdModel[] = [];
-    if (cfg.show_thresholds) {
+    if (cfg.show_thresholds && !this._compact) {
       const seen = new Set<number>();
       for (const s of series) {
         if (s.off) continue;
@@ -635,7 +637,7 @@ export class BestNumberCard extends LitElement {
       }
     }
 
-    const ticks = timeTicks(this._hours, plotW);
+    const ticks = this._compact ? [] : timeTicks(this._hours, plotW);
     this._model = { key, width: this._width, plotW, height, start, end, series, axes, thresholds, hasData, ticks };
     return this._model;
   }
@@ -772,8 +774,10 @@ export class BestNumberCard extends LitElement {
     const cfg = this._config;
     if (!cfg || !this.hass) return nothing;
     const visible = this._visible();
-    const showGraph = !this._compact && (cfg.graph ?? DEFAULTS.graph) !== "none";
-    const model = showGraph ? this._buildModel() : undefined;
+    const graphOn = (cfg.graph ?? DEFAULTS.graph) !== "none";
+    const showGraph = !this._compact && graphOn;
+    const bgGraph = this._compact && graphOn && !!cfg.compact_graph;
+    const model = showGraph || bgGraph ? this._buildModel() : undefined;
 
     return html`
       <ha-card
@@ -787,6 +791,9 @@ export class BestNumberCard extends LitElement {
         role="button"
         aria-label=${cfg.name ?? this._name(visible[0] ?? cfg.entities[0])}
       >
+        ${bgGraph && visible.length
+          ? html`<div class="graph bg" aria-hidden="true">${model ? this._renderSvg(model, !this._ds?.loaded) : nothing}</div>`
+          : nothing}
         ${this._compact ? this._renderCompact(visible) : this._renderHeader(visible, model)}
         ${showGraph && visible.length ? this._renderGraph(model) : nothing}
       </ha-card>
@@ -892,16 +899,21 @@ export class BestNumberCard extends LitElement {
   private _renderCompact(visible: EntityConfig[]): TemplateResult {
     const cfg = this._config!;
     const items = visible.filter((e) => e.show_value !== false);
+    const first = visible[0] ?? cfg.entities[0];
     return html`<div class="compact-row fade">
+      ${cfg.compact_icon ? html`<span class="icon compact-icon">${this._renderIcon(first, cfg.icon)}</span>` : nothing}
       ${cfg.name ? html`<span class="compact-name">${cfg.name}</span>` : nothing}
       <div class="compact-values">
         ${items.length
           ? items.map(
               (e) => html`<span class="compact-item" data-entity=${e.entity} title=${this._name(e)}>
                 ${items.length > 1 || cfg.legend_icon === "icon" ? this._renderMarker(e) : nothing}
-                <span class="vm">
-                  <span class="value" style=${this._valueStyle(e)}>${this._formatState(e)}</span>
-                  <span class="measurement">${this._unit(e)}</span>
+                <span class="compact-text">
+                  ${cfg.compact_names ? html`<span class="compact-label">${this._name(e)}</span>` : nothing}
+                  <span class="vm">
+                    <span class="value" style=${this._valueStyle(e)}>${this._formatState(e)}</span>
+                    <span class="measurement">${this._unit(e)}</span>
+                  </span>
                 </span>
               </span>`,
             )
@@ -1508,7 +1520,35 @@ export class BestNumberCard extends LitElement {
       margin-left: auto;
       font-weight: 500;
     }
+    .graph.bg {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.28;
+      overflow: hidden;
+      border-radius: inherit;
+    }
+    .compact-icon {
+      flex: none;
+      line-height: 0;
+    }
+    .compact-text {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .compact-label {
+      color: var(--secondary-text-color);
+      font-size: 11px;
+      line-height: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 12em;
+    }
     .compact-row {
+      position: relative;
+      z-index: 1;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -1517,6 +1557,7 @@ export class BestNumberCard extends LitElement {
       box-sizing: border-box;
     }
     .compact-name {
+      min-width: 3em;
       color: var(--secondary-text-color);
       font-weight: 500;
       white-space: nowrap;

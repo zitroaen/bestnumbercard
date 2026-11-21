@@ -123,6 +123,12 @@ export interface CardConfig {
   tooltip?: boolean;
   /** Start in compact mode (values only, no graph, no history loaded). */
   compact?: boolean;
+  /** Compact mode: show the card icon. */
+  compact_icon?: boolean;
+  /** Compact mode: show the names of the entities. */
+  compact_names?: boolean;
+  /** Compact mode: faint graph in the background (loads the history). */
+  compact_graph?: boolean;
   /** Remember a toggled compact state on this device (default true). */
   remember_compact?: boolean;
   /** Min/max labels of the y-axis: on hover (default), always or never. */
