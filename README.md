@@ -101,7 +101,7 @@ entities:
 | `graph` | `line` | `line` or `none` |
 | `detail` | `1` | `1` = smooth average, `2` = high detail, keeps every peak (min/max per pixel) |
 | `hours_to_show` | `24` | Time window |
-| `height` | auto | Graph height in px |
+| `height` | auto | Graph height in px. By default the graph uses the free space of the card (sections dashboards with a fixed card height) and otherwise has the height of the sensor card's graph. |
 | `limits` | – | `{min, max}` for all scales (like the sensor card) |
 | `smoothing` | `true` | Smooth curves |
 | `fill_gradient` | `value` | Default for all entities, see `fill_gradient` below |
