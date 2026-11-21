@@ -197,3 +197,21 @@ test("statistics min/max are kept for the band", async () => {
   assert.deepEqual([s.v[0], s.lo![0], s.hi![0]], [10, 5, 15]);
   ds.dispose();
 });
+
+test("missing statistics rows (sensor unavailable) become a gap", async () => {
+  const now = Date.now();
+  const t0 = Math.floor((now - 20 * H) / 300_000) * 300_000;
+  const P = 300_000;
+  const rows = [
+    { start: t0, end: t0 + P, mean: 1 },
+    // t0+P … t0+3P: no rows → sensor was unavailable
+    { start: t0 + 3 * P, end: t0 + 4 * P, mean: 2 },
+  ];
+  const { hass } = fakeHass({ "sensor.a": rows });
+  const ds = new DataSource(hass, opts(["sensor.a"], () => {}, 24));
+  await ds.start();
+  const s = ds.series("sensor.a")!;
+  assert.deepEqual(s.t.slice(0, 3), [t0, t0 + P, t0 + 3 * P]);
+  assert.ok(Number.isNaN(s.v[1]));
+  ds.dispose();
+});

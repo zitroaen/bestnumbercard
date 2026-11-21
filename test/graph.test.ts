@@ -53,3 +53,13 @@ test("time ticks: nice steps, 'now' on the right, nothing next to the y-axis lab
   // one week on 380 px: steps of two days, labels in hours from now
   assert.deepEqual(timeTicks(168, 380).map((x) => x.hours), [96, 48, 0]); // −144 h would collide with the y-axis labels
 });
+
+test("outages: a mostly unavailable pixel is a gap, a short blip is not", () => {
+  // 0..100 valid, 100..160 unavailable, 160.. valid again; buckets of 100
+  const b = aggregate({ t: [0, 100, 160], v: [5, NaN, 6] }, 0, 300, 3);
+  assert.equal(b.mean[0], 5);
+  assert.ok(Number.isNaN(b.mean[1]), "60 % unavailable → gap");
+  assert.equal(b.mean[2], 6);
+  const c = aggregate({ t: [0, 100, 110], v: [5, NaN, 6] }, 0, 200, 2);
+  assert.ok(Number.isFinite(c.mean[1]), "10 % unavailable → no gap");
+});

@@ -49,9 +49,14 @@ export function aggregate(data: SeriesData, start: number, end: number, n: numbe
     let tMax = 0;
     let bLo = Infinity;
     let bHi = -Infinity;
+    let gap = 0; // time without a valid value (unavailable / unknown / no data)
     const take = (val: number, lo: number, hi: number, from: number, to: number) => {
       // a value that ends exactly where this bucket starts belongs to the previous bucket
-      if (!Number.isFinite(val) || (to <= bStart && b > 0)) return;
+      if (to <= bStart && b > 0) return;
+      if (!Number.isFinite(val)) {
+        gap += Math.max(0, to - from);
+        return;
+      }
       if (lo < bLo) bLo = lo;
       if (hi > bHi) bHi = hi;
       const d = to - from;
@@ -77,7 +82,8 @@ export function aggregate(data: SeriesData, start: number, end: number, n: numbe
       idx++;
     }
     take(cur, curLo, curHi, segStart, bEnd);
-    if (mn !== Infinity) {
+    // mostly unavailable → gap, so outages stay visible instead of being averaged away
+    if (mn !== Infinity && gap * 2 < bEnd - bStart) {
       mean[b] = dur > 0 ? sum / dur : (mn + mx) / 2;
       min[b] = mn;
       max[b] = mx;

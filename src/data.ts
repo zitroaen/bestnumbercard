@@ -467,6 +467,13 @@ export class DataSource {
     for (const row of rows) {
       const t = toMs(row.start);
       if (!Number.isFinite(t) || (s.statT.length && t <= s.statT[s.statT.length - 1])) continue;
+      // HA creates no statistics rows while a sensor is unavailable → mark the gap
+      if (s.statT.length && Number.isFinite(s.statsEnd) && t > s.statsEnd) {
+        s.statT.push(s.statsEnd);
+        s.statV.push(NaN);
+        s.statLo.push(NaN);
+        s.statHi.push(NaN);
+      }
       const v = toNumber(row.mean ?? row.state ?? NaN);
       s.statT.push(t);
       s.statV.push(v);
