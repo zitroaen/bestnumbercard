@@ -546,21 +546,21 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       <span title=${s("card.min")}>↓ ${this._formatValue(t,i.ext.min)}</span>
       <span title=${s("card.avg")}>Ø ${this._formatValue(t,i.ext.avg)}</span>
       <span title=${s("card.max")}>↑ ${this._formatValue(t,i.ext.max)}</span>
-    </div>`}_renderHeader(t,e){const i=this._config,s=1===i.entities.length,o=t[0]??i.entities[0],r=i.value_display??(s?"primary":"all"),n=i.name??(s||"primary"===r?this._name(o):void 0),a=i.icon??(s||"primary"===r?void 0:null),l=void 0!==n||null!==a,c=l?I`<div class="header ${"all"!==r||s?"":"tight"}">
+    </div>`}_renderHeader(t,e){const i=this._config,s=1===i.entities.length,o=t[0]??i.entities[0],r=i.value_display??(s?"primary":"all"),n=i.name??(s||"primary"===r?this._name(o):void 0),a=i.icon??(s||"primary"===r?void 0:null),l=void 0===n&&null!==a&&"all"===r,c=(void 0!==n||null!==a)&&!l,h=c?I`<div class="header ${"all"!==r||s?"":"tight"}">
           <div class="name">${n??""}</div>
           ${null!==a?I`<div class="icon">${this._renderIcon(o,a)}</div>`:B}
-        </div>`:B;if(!t.length)return I`${c}<div class="info empty">${It(this.hass,"card.all_hidden")}</div>`;if("none"===r)return I`${c}`;if("primary"===r)return I`${c}
+        </div>`:B;if(!t.length)return I`${h}<div class="info empty">${It(this.hass,"card.all_hidden")}</div>`;if("none"===r)return I`${h}`;if("primary"===r)return I`${h}
         <div class="info fade" data-entity=${o.entity} style=${this._sizeStyle(o)}>
           <span class="value" style=${this._valueStyle(o)}>${this._formatState(o)}</span>
           <span class="measurement">${this._unit(o)}</span>
           ${this._renderExtrema(o,e)}
-        </div>`;const h=t.filter(t=>!1!==t.show_value),d=h.length>1,p=d&&!1!==i.legend_toggle&&"none"!==i.graph;return I`${c}
-      <div class="values fade ${d?"multi":""} ${l?"":"noheader"}">
-        ${h.map(t=>{const i=this._off.has(this._sid(t));return I`<div class="item ${i?"off":""}" data-entity=${t.entity} style=${this._sizeStyle(t)}>
-            ${d?I`<div
-                  class="item-name ${p?"toggle":""}"
-                  data-toggle=${p?this._sid(t):""}
-                  title=${p?It(this.hass,"card.toggle_series"):""}
+        </div>`;const d=t.filter(t=>!1!==t.show_value),p=d.length>1,u=p&&!1!==i.legend_toggle&&"none"!==i.graph;return I`${h}
+      <div class="values fade ${p?"multi":""} ${c?"":"noheader"}">
+        ${d.map(t=>{const i=this._off.has(this._sid(t));return I`<div class="item ${i?"off":""}" data-entity=${t.entity} style=${this._sizeStyle(t)}>
+            ${p?I`<div
+                  class="item-name ${u?"toggle":""}"
+                  data-toggle=${u?this._sid(t):""}
+                  title=${u?It(this.hass,"card.toggle_series"):""}
                 >
                   ${this._renderMarker(t)}<span>${this._name(t)}</span>
                 </div>`:B}
@@ -570,6 +570,7 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
             </div>
             ${this._renderExtrema(t,e)}
           </div>`})}
+        ${l?I`<div class="icon corner-icon">${this._renderIcon(o,a??void 0)}</div>`:B}
       </div>`}_renderCompact(t){const e=this._config,i=t.filter(t=>!1!==t.show_value);return I`<div class="compact-row fade">
       ${e.name?I`<span class="compact-name">${e.name}</span>`:B}
       <div class="compact-values">
@@ -780,8 +781,13 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       margin-top: -4px;
     }
     .values.noheader {
-      padding-top: 16px;
+      padding-top: 12px;
       margin-top: 0;
+    }
+    .corner-icon {
+      margin-left: auto;
+      align-self: flex-start;
+      line-height: 24px;
     }
     .values.multi .value {
       font-size: var(--bnc-fs, 24px);

@@ -835,7 +835,9 @@ export class BestNumberCard extends LitElement {
     const display = cfg.value_display ?? (single ? "primary" : "all");
     const name = cfg.name ?? (single || display === "primary" ? this._name(first) : undefined);
     const icon = cfg.icon ?? (single || display === "primary" ? undefined : null);
-    const showHeader = name !== undefined || icon !== null;
+    // only an icon and several values: no extra header row, the icon goes into the values row
+    const inlineIcon = name === undefined && icon !== null && display === "all";
+    const showHeader = (name !== undefined || icon !== null) && !inlineIcon;
 
     const header = showHeader
       ? html`<div class="header ${display === "all" && !single ? "tight" : ""}">
@@ -883,6 +885,7 @@ export class BestNumberCard extends LitElement {
             ${this._renderExtrema(e, model)}
           </div>`;
         })}
+        ${inlineIcon ? html`<div class="icon corner-icon">${this._renderIcon(first, icon ?? undefined)}</div>` : nothing}
       </div>`;
   }
 
@@ -1236,8 +1239,13 @@ export class BestNumberCard extends LitElement {
       margin-top: -4px;
     }
     .values.noheader {
-      padding-top: 16px;
+      padding-top: 12px;
       margin-top: 0;
+    }
+    .corner-icon {
+      margin-left: auto;
+      align-self: flex-start;
+      line-height: 24px;
     }
     .values.multi .value {
       font-size: var(--bnc-fs, 24px);
