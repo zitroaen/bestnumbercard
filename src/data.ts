@@ -63,6 +63,17 @@ export class EntityStore {
   preferRaw = false;
   /** last error of the history subscription (shown in the card instead of "no data") */
   error?: string;
+  /** start of a subscription whose first answer has not arrived yet */
+  pendingFrom?: number;
+
+  /** Remember up to where the data is complete when the live subscription stops. */
+  stopLive(now: number): void {
+    this.live = false;
+    // if the answer was still outstanding, nothing after `pendingFrom` is known yet
+    if (this.pendingFrom !== undefined) this.rawUntil = this.pendingFrom;
+    else if (!Number.isFinite(this.rawUntil)) this.rawUntil = now;
+    this.pendingFrom = undefined;
+  }
   /** the first history message of the current subscription has arrived (or it failed) */
   rawLoaded = false;
   version = 0;
@@ -376,6 +387,7 @@ export class DataSource {
     for (const e of entityIds) {
       const s = this.stores.get(e)!;
       s.rawUntil = NaN;
+      s.pendingFrom = from;
       s.live = true;
       s.rawLoaded = s.rawLoaded && s.rawT.length > 0;
     }
@@ -390,6 +402,7 @@ export class DataSource {
       first = false;
       for (const e of entityIds) {
         const s = this.stores.get(e)!;
+        s.pendingFrom = undefined;
         s.rawLoaded = true;
         s.version++; // a detail store switches from the preview to the raw history
         s.notifySubscribers();
@@ -472,8 +485,7 @@ export class DataSource {
     const now = Date.now();
     for (const s of this.stores.values()) {
       if (s.owner !== this) continue;
-      s.live = false;
-      if (!Number.isFinite(s.rawUntil)) s.rawUntil = now;
+      s.stopLive(now);
     }
     // the subscriptions are gone with the connection
     this.subs = [];
@@ -617,14 +629,18 @@ export class DataSource {
       s.subscribers.delete(this);
       if (s.owner !== this) continue;
       s.owner = undefined;
-      s.live = false;
-      if (!Number.isFinite(s.rawUntil)) s.rawUntil = now;
+      s.stopLive(now);
       if (s.subscribers.size) handOver.push([e, s]);
     }
     for (const sub of this.subs) sub.unsub?.().catch(() => undefined);
     this.subs = [];
-    // other cards still show these entities: one of them continues the live subscription
-    for (const [e, s] of handOver) [...s.subscribers][0]?.adopt(e);
+    // other cards still show these entities: one of them continues the live subscription.
+    // Deferred, so that cards removed together (view change, editor rebuild) don't hand over to each other.
+    if (handOver.length) {
+      queueMicrotask(() => {
+        for (const [e, s] of handOver) if (!s.owner) [...s.subscribers][0]?.adopt(e);
+      });
+    }
   }
 
   /** @internal */
