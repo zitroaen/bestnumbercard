@@ -46,6 +46,8 @@ interface SeriesModel {
   off: boolean;
   ext: { min: number; max: number; avg: number };
   band: boolean;
+  /** smoothing cuts narrow peaks, so peak-preserving series are drawn exactly */
+  smooth: boolean;
 }
 
 interface AxisModel {
@@ -111,6 +113,7 @@ export class BestNumberCard extends LitElement {
     _config: { state: true },
     _compact: { state: true },
     _width: { state: true },
+    _graphH: { state: true },
     _hoverX: { state: true },
     _tick: { state: true },
     _off: { state: true },
@@ -120,6 +123,8 @@ export class BestNumberCard extends LitElement {
   private _config?: CardConfig;
   private _compact = false;
   private _width = 0;
+  /** measured height of the graph area (fills the card in grid layouts) */
+  private _graphH = 0;
   private _hoverX: number | null = null;
   private _tick = 0;
   /** entities switched off via the legend (session only) */
@@ -244,7 +249,9 @@ export class BestNumberCard extends LitElement {
       if (el) {
         this._ro ??= new ResizeObserver((entries) => {
           const w = Math.round(entries[0].contentRect.width);
+          const h = Math.round(entries[0].contentRect.height);
           if (w && w !== this._width) this._width = w;
+          if (h && h !== this._graphH) this._graphH = h;
         });
         this._ro.observe(el);
       }
@@ -474,10 +481,17 @@ export class BestNumberCard extends LitElement {
 
   // ---------------------------------------------------------------- graph model
 
-  private _graphHeight(): number {
+  /** natural graph height (like the sensor card), used when the card height is not fixed */
+  private _baseGraphHeight(): number {
     const h = Number(this._config?.height);
     if (h > 0) return h;
     return Math.round(Math.min(Math.max((this._width || 400) / 5, 56), 140));
+  }
+
+  /** actual height: in grid layouts with a fixed card height the graph takes all free space */
+  private _graphHeight(): number {
+    if (Number(this._config?.height) > 0) return Number(this._config!.height);
+    return this._graphH > 0 ? this._graphH : this._baseGraphHeight();
   }
 
   private _labelMargin(series: EntityConfig[]): number {
@@ -586,6 +600,7 @@ export class BestNumberCard extends LitElement {
         off: this._off.has(this._sid(e)),
         ext: { min: mn, max: mx, avg: cnt ? sum / cnt : NaN },
         band: this._bandOn(e),
+        smooth: (cfg.smoothing ?? DEFAULTS.smoothing) && detailFor(e) === 1,
       };
       if (e.color_scale?.length) {
         m.gradId = `${this._uid}-g${index}`;
@@ -823,7 +838,7 @@ export class BestNumberCard extends LitElement {
     const showHeader = name !== undefined || icon !== null;
 
     const header = showHeader
-      ? html`<div class="header">
+      ? html`<div class="header ${display === "all" && !single ? "tight" : ""}">
           <div class="name">${name ?? ""}</div>
           ${icon !== null ? html`<div class="icon">${this._renderIcon(first, icon)}</div>` : nothing}
         </div>`
@@ -900,7 +915,9 @@ export class BestNumberCard extends LitElement {
     const xAxis = this._config!.x_axis ?? DEFAULTS.x_axis;
     return html`<div
       class="graph fade ${this._hoverX !== null ? "active" : ""} ${xAxis === "always" ? "xa-always" : ""}"
-      style="height:${height}px"
+      style=${Number(this._config!.height) > 0
+        ? `height:${height}px;flex:none`
+        : `flex:1 1 ${this._baseGraphHeight()}px;min-height:${Math.min(40, this._baseGraphHeight())}px`}
       @pointerdown=${this._onGraphDown}
       @pointermove=${this._onMove}
       @pointerup=${this._onGraphUp}
@@ -952,13 +969,12 @@ export class BestNumberCard extends LitElement {
   }
 
   private _renderSvg(m: GraphModel, loading = false): TemplateResult {
-    const smooth = this._config!.smoothing ?? DEFAULTS.smoothing;
     const hover = this._hoverX;
     const shown = m.series.filter((s) => !s.off);
     // while nothing is there yet: a flat line per series, like the built-in sensor card
     const flatY = (s: SeriesModel) => m.height - s.lineWidth / 2 - 2;
     const shapes = (s: SeriesModel) =>
-      m.hasData ? s.segs.map((seg) => linePath(seg, smooth)) : [`M0,${flatY(s)}L${m.plotW},${flatY(s)}`];
+      m.hasData ? s.segs.map((seg) => linePath(seg, s.smooth)) : [`M0,${flatY(s)}L${m.plotW},${flatY(s)}`];
     const glowW = Math.max(60, m.plotW * 0.35);
     return html`<svg width=${m.width} height=${m.height} viewBox="0 0 ${m.width} ${m.height}">
       <defs>
@@ -1003,11 +1019,11 @@ export class BestNumberCard extends LitElement {
         return svg`<g>
           ${s.band ? svg`<path class="band" d=${bandPath(s.buckets, m.plotW, s.y)} style="fill:${paint}"></path>` : nothing}
           ${s.fill
-            ? s.segs.map((seg) => svg`<path class="fill" d=${fillPath(seg, smooth, m.height)} style="fill:${fillPaint}"></path>`)
+            ? s.segs.map((seg) => svg`<path class="fill" d=${fillPath(seg, s.smooth, m.height)} style="fill:${fillPaint}"></path>`)
             : nothing}
           ${s.segs.map(
             (seg) =>
-              svg`<path class="line" d=${linePath(seg, smooth)} style="stroke:${paint};stroke-width:${s.lineWidth}px"></path>`,
+              svg`<path class="line" d=${linePath(seg, s.smooth)} style="stroke:${paint};stroke-width:${s.lineWidth}px"></path>`,
           )}
         </g>`;
       })}
@@ -1055,7 +1071,8 @@ export class BestNumberCard extends LitElement {
     // avoid overlapping labels
     const gap = 18;
     for (let i = 1; i < labels.length; i++) labels[i].y = Math.max(labels[i].y, labels[i - 1].y + gap);
-    const overflow = labels.length ? labels[labels.length - 1].y - (m.height - gap / 2) : 0;
+    // keep clear of the card's rounded bottom corner
+    const overflow = labels.length ? labels[labels.length - 1].y - (m.height - gap / 2 - 12) : 0;
     if (overflow > 0) for (const l of labels) l.y -= overflow;
     for (const l of labels) l.y = Math.max(l.y, gap / 2);
     return html`${labels.map(({ s, v, y }) => {
@@ -1161,6 +1178,13 @@ export class BestNumberCard extends LitElement {
       display: flex;
       padding: 8px 16px 0;
       justify-content: space-between;
+    }
+    .header.tight {
+      padding-top: 6px;
+    }
+    .header.tight .name,
+    .header.tight .icon {
+      line-height: 34px;
     }
     .name {
       color: var(--secondary-text-color);
@@ -1272,10 +1296,14 @@ export class BestNumberCard extends LitElement {
     }
     .graph {
       position: relative;
-      margin-top: auto;
       width: 100%;
-      flex: none;
       touch-action: pan-y;
+    }
+    /* the svg must not influence the layout – its size follows the measured area */
+    .graph svg {
+      position: absolute;
+      left: 0;
+      top: 0;
     }
     svg {
       display: block;
