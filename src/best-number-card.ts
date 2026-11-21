@@ -818,10 +818,13 @@ export class BestNumberCard extends LitElement {
     const showGraph = !this._compact && graphOn;
     const bgGraph = this._compact && graphOn && !!cfg.compact_graph;
     const model = showGraph || bgGraph ? this._buildModel() : undefined;
+    // colour of the card name and entity names, in both modes (compact_text_color: older name)
+    const textColor = cfg.text_color ?? cfg.compact_text_color;
 
     return html`
       <ha-card
         class=${this._compact ? "compact" : ""}
+        style=${textColor ? `--bnc-cnc:${textColor}` : ""}
         @pointerdown=${this._onPointerDown}
         @pointerup=${this._onPointerUp}
         @pointercancel=${this._onPointerUp}
@@ -943,7 +946,6 @@ export class BestNumberCard extends LitElement {
     const vars = [
       Number(cfg.compact_font_size) > 0 ? `--bnc-cfs:${Number(cfg.compact_font_size)}px` : "",
       Number(cfg.compact_name_size) > 0 ? `--bnc-cns:${Number(cfg.compact_name_size)}px` : "",
-      cfg.compact_text_color ? `--bnc-cnc:${cfg.compact_text_color}` : "",
     ].filter(Boolean).join(";");
     return html`<div class="compact-row fade ${cfg.compact_graph && cfg.graph !== "none" ? "over-graph" : ""}" style=${vars}>
       ${cfg.compact_icon ? html`<span class="icon compact-icon">${this._renderIcon(first, cfg.icon)}</span>` : nothing}
@@ -1247,7 +1249,7 @@ export class BestNumberCard extends LitElement {
       line-height: 34px;
     }
     .name {
-      color: var(--secondary-text-color);
+      color: var(--bnc-cnc, var(--secondary-text-color));
       line-height: 40px;
       font-weight: 500;
       font-size: 16px;
@@ -1330,7 +1332,7 @@ export class BestNumberCard extends LitElement {
       gap: 6px;
       font-size: 12px;
       line-height: 16px;
-      color: var(--secondary-text-color);
+      color: var(--bnc-cnc, var(--secondary-text-color));
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;

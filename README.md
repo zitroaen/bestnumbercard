@@ -122,13 +122,13 @@ entities:
 | `compact_graph` | `false` | Compact mode: faint graph in the background. This loads the history, which compact mode otherwise doesn't. |
 | `compact_font_size` | `20` | Compact mode: font size of the values in px (unit and names scale along) |
 | `compact_name_size` | – | Compact mode: font size of the card name in px |
-| `compact_text_color` | secondary text colour | Compact mode: colour of the card name and the entity names |
 | `compact_animation` | `true` | Animate switching between compact and full mode. Off for users with *reduce motion*. |
 | `remember_compact` | `true` | Remember a compact mode toggled by tapping, per device |
 | `statistics_threshold` | `6` | Use long-term statistics if `hours_to_show` is larger than this |
 | `statistics_period` | `auto` | `auto`, `5minute`, `hour`, `day` |
 | `alert_style` | `glow` | Effect while an entity is in alert: `glow` (pulsing), `blink`, `static` (steady glow) |
 | `alert_color` | theme error color | Color of the alert glow |
+| `text_color` | secondary text colour | Colour of the card name and the entity names (full and compact mode) |
 | `theme` | – | Theme for this card |
 | `tap_action` | `more-info` | Standard HA actions, plus `toggle-compact` |
 | `hold_action` / `double_tap_action` | – | Standard HA actions, plus `toggle-compact` |

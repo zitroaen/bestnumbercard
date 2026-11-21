@@ -802,18 +802,19 @@ export class BestNumberCardEditor extends LitElement {
         .computeLabel=${this._computeLabel}
         @value-changed=${this._cardChanged}
       ></ha-form>
-      ${this._config.compact || this._config.tap_action?.action === "toggle-compact"
-        ? html`<div class="field-row">
-            <span class="field-label">${this._l("field.compact_text_color")}</span>
-            ${this._renderColorField(
-              "compact-text",
-              this._config.compact_text_color,
-              (c) => this._emit(clean({ ...this._config!, compact_text_color: c }) as CardConfig),
-              this._l("field.compact_text_color"),
-              "var(--secondary-text-color)",
-            )}
-          </div>`
-        : nothing}
+      <div class="field-row">
+        <span class="field-label">${this._l("field.text_color")}</span>
+        ${this._renderColorField(
+          "text-color",
+          this._config.text_color ?? this._config.compact_text_color,
+          (c) => {
+            const { compact_text_color: _old, ...rest } = this._config!;
+            this._emit(clean({ ...rest, text_color: c }) as CardConfig);
+          },
+          this._l("field.text_color"),
+          "var(--secondary-text-color)",
+        )}
+      </div>
       ${this._renderAlertSection()}
       <div class="section-title">${this._l("editor.section.entities")}</div>
       <div class="entities ${this._drag ? "is-dragging" : ""}">
