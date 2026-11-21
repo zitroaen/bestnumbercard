@@ -205,6 +205,10 @@ export class BestNumberCardEditor extends LitElement {
                   { name: "compact_names", selector: { boolean: {} } },
                 ]),
                 grid([
+                  { name: "compact_font_size", selector: { number: { mode: "box", min: 8, max: 72, step: 1, unit_of_measurement: "px" } } },
+                  { name: "compact_name_size", selector: { number: { mode: "box", min: 8, max: 72, step: 1, unit_of_measurement: "px" } } },
+                ]),
+                grid([
                   ...(hasGraph ? [{ name: "compact_graph", selector: { boolean: {} } }] : []),
                   ...(compactOnTap ? [{ name: "compact_animation", selector: { boolean: {} } }] : []),
                 ]),
@@ -798,6 +802,18 @@ export class BestNumberCardEditor extends LitElement {
         .computeLabel=${this._computeLabel}
         @value-changed=${this._cardChanged}
       ></ha-form>
+      ${this._config.compact || this._config.tap_action?.action === "toggle-compact"
+        ? html`<div class="field-row">
+            <span class="field-label">${this._l("field.compact_text_color")}</span>
+            ${this._renderColorField(
+              "compact-text",
+              this._config.compact_text_color,
+              (c) => this._emit(clean({ ...this._config!, compact_text_color: c }) as CardConfig),
+              this._l("field.compact_text_color"),
+              "var(--secondary-text-color)",
+            )}
+          </div>`
+        : nothing}
       ${this._renderAlertSection()}
       <div class="section-title">${this._l("editor.section.entities")}</div>
       <div class="entities ${this._drag ? "is-dragging" : ""}">
