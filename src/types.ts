@@ -133,7 +133,9 @@ export interface CardConfig {
   compact_font_size?: number;
   /** Compact mode: font size of the card name in px. */
   compact_name_size?: number;
-  /** Compact mode: colour of the card name and the entity names. */
+  /** Colour of the card name and the entity names (both modes). */
+  text_color?: string;
+  /** @deprecated older name of `text_color` */
   compact_text_color?: string;
   /** Animate switching between compact and full mode (default true). */
   compact_animation?: boolean;
