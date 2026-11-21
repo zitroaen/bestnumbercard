@@ -128,6 +128,7 @@ entities:
 | `statistics_period` | `auto` | `auto`, `5minute`, `hour`, `day` |
 | `alert_style` | `glow` | Effect while an entity is in alert: `glow` (pulsing), `blink`, `static` (steady glow) |
 | `alert_color` | theme error color | Color of the alert glow |
+| `unavailable_text` | HA's text | Text shown instead of "unavailable" / "unknown", e.g. `"–"`. The unit is hidden while there is no value. Can also be set per entity. |
 | `text_color` | secondary text colour | Colour of the card name and the entity names (full and compact mode) |
 | `theme` | – | Theme for this card |
 | `tap_action` | `more-info` | Standard HA actions, plus `toggle-compact` |
