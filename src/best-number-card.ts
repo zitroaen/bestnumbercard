@@ -148,6 +148,8 @@ export class BestNumberCard extends LitElement {
   private _scrub?: { x: number; y: number; active: boolean };
   private _suppressClick = false;
   private _hideTimer?: number;
+  /** true while the card animates between compact and full mode */
+  private _animating = false;
   private _storageKey = "";
   private _colorCache = new Map<string, RGBA>();
   private _resolve = (c: string): RGBA => {
@@ -251,7 +253,7 @@ export class BestNumberCard extends LitElement {
           const w = Math.round(entries[0].contentRect.width);
           const h = Math.round(entries[0].contentRect.height);
           if (w && w !== this._width) this._width = w;
-          if (h && h !== this._graphH) this._graphH = h;
+          if (h && h !== this._graphH && !this._animating) this._graphH = h;
         });
         this._ro.observe(el);
       }
@@ -466,11 +468,41 @@ export class BestNumberCard extends LitElement {
   }
 
   private _setCompact(value: boolean): void {
+    const card = this.renderRoot.querySelector("ha-card") as HTMLElement | null;
+    const animate =
+      this._config?.compact_animation !== false &&
+      !!card &&
+      typeof card.animate === "function" &&
+      !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const from = animate ? card!.getBoundingClientRect().height : 0;
     this._compact = value;
     this._hoverX = null;
     if (this._config?.remember_compact !== false) {
       storageSet(this._storageKey, { v: value, d: !!this._config?.compact });
     }
+    if (animate) this.updateComplete.then(() => this._animateHeight(card!, from));
+  }
+
+  /**
+   * Smoothly resize the card between compact and full mode (FLIP: measure, switch, animate).
+   * The graph keeps its final size meanwhile – only the visible part of the card grows or shrinks.
+   */
+  private _animateHeight(card: HTMLElement, from: number): void {
+    const to = card.getBoundingClientRect().height;
+    if (Math.abs(to - from) < 2) return; // e.g. fixed height in a grid layout
+    this._animating = true;
+    const anim = card.animate([{ height: `${from}px` }, { height: `${to}px` }], {
+      duration: 280,
+      easing: "cubic-bezier(0.2, 0, 0, 1)",
+    });
+    const done = () => {
+      this._animating = false;
+      const g = this.renderRoot.querySelector(".graph");
+      const h = g ? Math.round(g.getBoundingClientRect().height) : 0;
+      if (h && h !== this._graphH) this._graphH = h;
+    };
+    anim.onfinish = done;
+    anim.oncancel = done;
   }
 
   private _toggleSeries(entity: string): void {
@@ -900,7 +932,7 @@ export class BestNumberCard extends LitElement {
     const cfg = this._config!;
     const items = visible.filter((e) => e.show_value !== false);
     const first = visible[0] ?? cfg.entities[0];
-    return html`<div class="compact-row fade">
+    return html`<div class="compact-row fade ${cfg.compact_graph && cfg.graph !== "none" ? "over-graph" : ""}">
       ${cfg.compact_icon ? html`<span class="icon compact-icon">${this._renderIcon(first, cfg.icon)}</span>` : nothing}
       ${cfg.name ? html`<span class="compact-name">${cfg.name}</span>` : nothing}
       <div class="compact-values">
@@ -1531,6 +1563,19 @@ export class BestNumberCard extends LitElement {
     .compact-icon {
       flex: none;
       line-height: 0;
+    }
+    /* text above the background graph: a soft halo in the card colour keeps it readable */
+    .compact-row.over-graph {
+      --bnc-halo: var(--ha-card-background, var(--card-background-color, #fff));
+      text-shadow:
+        0 0 2px var(--bnc-halo),
+        0 0 4px var(--bnc-halo),
+        0 0 8px var(--bnc-halo),
+        0 0 12px var(--bnc-halo);
+    }
+    .compact-row.over-graph ha-state-icon,
+    .compact-row.over-graph .marker.dot {
+      filter: drop-shadow(0 0 3px var(--bnc-halo)) drop-shadow(0 0 6px var(--bnc-halo));
     }
     .compact-text {
       display: flex;

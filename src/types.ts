@@ -129,6 +129,8 @@ export interface CardConfig {
   compact_names?: boolean;
   /** Compact mode: faint graph in the background (loads the history). */
   compact_graph?: boolean;
+  /** Animate switching between compact and full mode (default true). */
+  compact_animation?: boolean;
   /** Remember a toggled compact state on this device (default true). */
   remember_compact?: boolean;
   /** Min/max labels of the y-axis: on hover (default), always or never. */
