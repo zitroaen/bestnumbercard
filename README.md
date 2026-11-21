@@ -17,7 +17,7 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 - **Tap a legend entry** to temporarily hide its line
 - **Alert glow**: the whole card glows, pulses or blinks while a value reaches its alert threshold.
 - **Hide entities depending on their value**. A hidden entity is not shown and its history is not loaded at all.
-- **Compact mode**: values only, minimal height, no history loaded. It can be the default, or you can toggle it by tapping the card. The toggled state is remembered on each device.
+- **Compact mode**: values only, minimal height, no history loaded. Optionally with the card icon, entity names and a faint graph in the background. It can be the default, or you can toggle it by tapping the card. The toggled state is remembered on each device.
 - **Tooltip** on hover, and on phones by **swiping across the graph**
 - **Visual editor** in English and German, with a color picker (theme colors + custom color), color scale preview, presets, drag & drop sorting, warnings and performance hints. The language follows your Home Assistant language.
 - **Very light on your system**, even for long windows of dense data (see [Performance](#performance))
@@ -117,6 +117,9 @@ entities:
 | `show_extrema` | `false` | Show min / average / max of the visible time range below each value |
 | `legend_toggle` | `true` | Tap an entity name in the header to hide or show its line |
 | `compact` | `false` | Start in compact mode |
+| `compact_icon` | `false` | Compact mode: show the card icon |
+| `compact_names` | `false` | Compact mode: show the entity names (small, above the values) |
+| `compact_graph` | `false` | Compact mode: faint graph in the background. This loads the history, which compact mode otherwise doesn't. |
 | `remember_compact` | `true` | Remember a compact mode toggled by tapping, per device |
 | `statistics_threshold` | `6` | Use long-term statistics if `hours_to_show` is larger than this |
 | `statistics_period` | `auto` | `auto`, `5minute`, `hour`, `day` |
