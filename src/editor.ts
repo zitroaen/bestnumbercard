@@ -285,7 +285,7 @@ export class BestNumberCardEditor extends LitElement {
             ]
           : []),
       ]),
-      ...(graphOn && this._usesStatistics && !e.attribute ? [{ name: "raw_history", selector: { boolean: {} } }] : []),
+      ...(graphOn && !e.attribute ? [{ name: "raw_history", selector: { boolean: {} } }] : []),
       {
         type: "expandable",
         flatten: true,
