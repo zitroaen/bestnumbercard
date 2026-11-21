@@ -9,6 +9,9 @@ export interface Buckets {
   max: Float64Array;
   /** true when the minimum occurred before the maximum inside the bucket */
   minFirst: Uint8Array;
+  /** real minimum / maximum incl. statistics min/max (for the band and min/avg/max) */
+  bandLo: Float64Array;
+  bandHi: Float64Array;
 }
 
 /**
@@ -22,11 +25,17 @@ export function aggregate(data: SeriesData, start: number, end: number, n: numbe
   const min = new Float64Array(n).fill(NaN);
   const max = new Float64Array(n).fill(NaN);
   const minFirst = new Uint8Array(n);
+  const bandLo = new Float64Array(n).fill(NaN);
+  const bandHi = new Float64Array(n).fill(NaN);
   const { t, v } = data;
+  const loArr = data.lo ?? v;
+  const hiArr = data.hi ?? v;
   const len = t.length;
   const bw = (end - start) / n;
   let idx = lowerBound(t, start);
   let cur = idx > 0 ? v[idx - 1] : NaN;
+  let curLo = idx > 0 ? loArr[idx - 1] : NaN;
+  let curHi = idx > 0 ? hiArr[idx - 1] : NaN;
 
   for (let b = 0; b < n; b++) {
     const bStart = start + b * bw;
@@ -38,8 +47,18 @@ export function aggregate(data: SeriesData, start: number, end: number, n: numbe
     let mx = -Infinity;
     let tMin = 0;
     let tMax = 0;
-    const take = (val: number, from: number, to: number) => {
-      if (!Number.isFinite(val)) return;
+    let bLo = Infinity;
+    let bHi = -Infinity;
+    let gap = 0; // time without a valid value (unavailable / unknown / no data)
+    const take = (val: number, lo: number, hi: number, from: number, to: number) => {
+      // a value that ends exactly where this bucket starts belongs to the previous bucket
+      if (to <= bStart && b > 0) return;
+      if (!Number.isFinite(val)) {
+        gap += Math.max(0, to - from);
+        return;
+      }
+      if (lo < bLo) bLo = lo;
+      if (hi > bHi) bHi = hi;
       const d = to - from;
       if (d > 0) {
         sum += val * d;
@@ -55,20 +74,25 @@ export function aggregate(data: SeriesData, start: number, end: number, n: numbe
       }
     };
     while (idx < len && t[idx] < bEnd) {
-      take(cur, segStart, t[idx]);
+      take(cur, curLo, curHi, segStart, t[idx]);
       cur = v[idx];
+      curLo = loArr[idx];
+      curHi = hiArr[idx];
       segStart = Math.max(t[idx], bStart);
       idx++;
     }
-    take(cur, segStart, bEnd);
-    if (mn !== Infinity) {
+    take(cur, curLo, curHi, segStart, bEnd);
+    // mostly unavailable → gap, so outages stay visible instead of being averaged away
+    if (mn !== Infinity && gap * 2 < bEnd - bStart) {
       mean[b] = dur > 0 ? sum / dur : (mn + mx) / 2;
       min[b] = mn;
       max[b] = mx;
       minFirst[b] = tMin <= tMax ? 1 : 0;
+      bandLo[b] = Math.min(bLo, mn);
+      bandHi[b] = Math.max(bHi, mx);
     }
   }
-  return { start, end, mean, min, max, minFirst };
+  return { start, end, mean, min, max, minFirst, bandLo, bandHi };
 }
 
 export type Point = [number, number];
@@ -135,6 +159,28 @@ export function fillPath(seg: Point[], smooth: boolean, bottom: number): string 
   return `${linePath(seg, smooth)}L${r(seg[seg.length - 1][0])},${bottom}L${r(seg[0][0])},${bottom}Z`;
 }
 
+/** Closed area between the band's upper and lower edge, split at gaps. */
+export function bandPath(b: Buckets, width: number, y: (v: number) => number): string {
+  const n = b.mean.length;
+  const step = n > 1 ? width / (n - 1) : 0;
+  let d = "";
+  let seg: number[] = [];
+  const flush = () => {
+    if (seg.length > 1) {
+      const top = seg.map((i) => `${r(i * step)},${r(y(b.bandHi[i]))}`);
+      const bottom = seg.map((i) => `${r(i * step)},${r(y(b.bandLo[i]))}`).reverse();
+      d += `M${top.join("L")}L${bottom.join("L")}Z`;
+    }
+    seg = [];
+  };
+  for (let i = 0; i < n; i++) {
+    if (Number.isFinite(b.bandLo[i]) && Number.isFinite(b.bandHi[i])) seg.push(i);
+    else flush();
+  }
+  flush();
+  return d;
+}
+
 /** Find the bucket value at x (for tooltips). */
 export function valueAtX(b: Buckets, x: number, width: number): number {
   const n = b.mean.length;
@@ -153,4 +199,20 @@ export function dataRange(list: Buckets[]): [number, number] {
       if (b.max[i] > hi) hi = b.max[i];
     }
   return [lo, hi];
+}
+
+const NICE_HOURS = [0.25, 0.5, 1, 2, 3, 6, 12, 24, 48, 72, 168, 336, 720, 2160];
+
+/** Relative time labels ("−6 h … now") at nice steps, about one per 90 px. */
+export function timeTicks(hours: number, plotW: number): Array<{ x: number; hours: number }> {
+  const target = Math.max(1, Math.floor(plotW / 90));
+  const step = NICE_HOURS.find((h) => h >= hours / target) ?? hours;
+  const ticks: Array<{ x: number; hours: number }> = [];
+  for (let k = 1; k * step < hours - 1e-9; k++) {
+    const x = plotW * (1 - (k * step) / hours);
+    if (x >= 70) ticks.push({ x: Math.round(x), hours: k * step }); // keep clear of the y-axis labels
+  }
+  ticks.reverse();
+  ticks.push({ x: plotW, hours: 0 });
+  return ticks;
 }

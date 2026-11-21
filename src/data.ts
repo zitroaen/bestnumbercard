@@ -38,6 +38,8 @@ export function choosePeriod(hours: number, configured?: string): StatPeriod {
 export class EntityStore {
   statT: number[] = [];
   statV: number[] = [];
+  statLo: number[] = [];
+  statHi: number[] = [];
   statsEnd = NaN; // end of the last statistics bucket
   rawT: number[] = [];
   rawV: number[] = [];
@@ -87,6 +89,11 @@ export class EntityStore {
         this.version++;
       }
     };
+    const i = lowerBound(this.statT, from) - 1;
+    if (i > 0) {
+      this.statLo.splice(0, i);
+      this.statHi.splice(0, i);
+    }
     cut(this.statT, this.statV);
     cut(this.rawT, this.rawV);
   }
@@ -96,14 +103,17 @@ export class EntityStore {
     if (this.memo?.version === this.version) return this.memo.data;
     let data: SeriesData;
     if (!this.statT.length) data = { t: this.rawT, v: this.rawV };
-    else if (!this.rawT.length) data = { t: this.statT, v: this.statV };
+    else if (!this.rawT.length) data = { t: this.statT, v: this.statV, lo: this.statLo, hi: this.statHi };
     else {
       // statistics buckets that start before the raw data begins, raw data from there on
       const k = Number.isFinite(this.rawFrom) ? lowerBound(this.statT, this.rawFrom) : this.statT.length;
       const rawStart = k ? lowerBound(this.rawT, Number.isFinite(this.rawFrom) ? this.rawFrom : this.statT[k - 1] + 1) : 0;
+      const rawV = this.rawV.slice(rawStart);
       data = {
         t: this.statT.slice(0, k).concat(this.rawT.slice(rawStart)),
-        v: this.statV.slice(0, k).concat(this.rawV.slice(rawStart)),
+        v: this.statV.slice(0, k).concat(rawV),
+        lo: this.statLo.slice(0, k).concat(rawV),
+        hi: this.statHi.slice(0, k).concat(rawV),
       };
     }
     this.memo = { version: this.version, data };
@@ -162,18 +172,26 @@ const toMs = (x: unknown): number => (typeof x === "number" ? (x < 1e11 ? x * 10
 
 const floorMinute = (t: number) => Math.floor(t / 60_000) * 60_000;
 
+/** A series is an entity's state ("sensor.x") or one of its attributes ("climate.y::temperature"). */
+export const seriesId = (entity: string, attribute?: string) => (attribute ? `${entity}::${attribute}` : entity);
+const entityOf = (sid: string) => sid.split("::")[0];
+const attributeOf = (sid: string): string | undefined => sid.split("::")[1];
+
 interface StreamMessage {
-  states?: Record<string, { s: string; lu?: number; lc?: number }[]>;
+  states?: Record<string, { s: string; a?: Record<string, unknown>; lu?: number; lc?: number }[]>;
 }
 
 interface StatRow {
   start: number | string;
   end?: number | string;
   mean?: number | null;
+  min?: number | null;
+  max?: number | null;
   state?: number | null;
 }
 
 export interface DataSourceOptions {
+  /** series ids, see `seriesId()` */
   entities: string[];
   hoursToShow: number;
   statisticsThreshold: number;
@@ -197,8 +215,15 @@ export class DataSource {
     this.entities = [...new Set(opts.entities)];
     this.useStatistics = opts.hoursToShow > opts.statisticsThreshold;
     this.period = choosePeriod(opts.hoursToShow, opts.statisticsPeriod);
-    const mode = this.useStatistics ? this.period : "raw";
-    for (const e of this.entities) this.stores.set(e, getStore(`${e}|${opts.hoursToShow}|${mode}`));
+    for (const e of this.entities) {
+      // attributes have no long-term statistics
+      const mode = this.statsFor(e) ? this.period : "raw";
+      this.stores.set(e, getStore(`${e}|${opts.hoursToShow}|${mode}`));
+    }
+  }
+
+  private statsFor(sid: string): boolean {
+    return this.useStatistics && !attributeOf(sid);
   }
 
   get windowStart(): number {
@@ -207,8 +232,8 @@ export class DataSource {
 
   /** true once statistics and the first history message for every entity are there */
   get loaded(): boolean {
-    for (const s of this.stores.values()) {
-      if (this.useStatistics && !s.statsLoaded) return false;
+    for (const [sid, s] of this.stores) {
+      if (this.statsFor(sid) && !s.statsLoaded) return false;
       if (!s.rawLoaded) return false;
     }
     return true;
@@ -235,7 +260,7 @@ export class DataSource {
       const missing: string[] = [];
       for (const e of this.entities) {
         const s = this.stores.get(e)!;
-        if (s.statsLoaded) continue;
+        if (!this.statsFor(e) || s.statsLoaded) continue;
         if (s.statsLoading) waits.push(s.statsLoading);
         else missing.push(e);
       }
@@ -271,7 +296,7 @@ export class DataSource {
 
   /** Subscribe the given (owned) entities, grouped by the time from which data is missing. */
   private subscribeGrouped(entities: string[], windowStart = this.windowStart): void {
-    const groups = new Map<number, string[]>();
+    const groups = new Map<string, string[]>();
     for (const e of entities) {
       const s = this.stores.get(e)!;
       let from: number;
@@ -284,14 +309,15 @@ export class DataSource {
       }
       // round down to the minute so that cards started at the same time share groups
       from = floorMinute(Math.max(from, windowStart));
-      const g = groups.get(from) ?? [];
+      const key = `${from}|${attributeOf(e) ? "a" : "s"}`;
+      const g = groups.get(key) ?? [];
       g.push(e);
-      groups.set(from, g);
+      groups.set(key, g);
     }
-    for (const [from, ents] of groups) this.subscribe(from, ents);
+    for (const [key, ents] of groups) this.subscribe(Number(key.split("|")[0]), ents, key.endsWith("|a"));
   }
 
-  private subscribe(from: number, entityIds: string[]): void {
+  private subscribe(from: number, entityIds: string[], attributes = false): void {
     const sub: { entities: string[]; unsub?: () => Promise<void> } = { entities: entityIds };
     this.subs.push(sub);
     let first = true;
@@ -314,17 +340,27 @@ export class DataSource {
       .subscribeMessage<StreamMessage>(
         (msg) => {
           markLoaded();
-          this.onStream(msg);
+          this.onStream(msg, entityIds);
         },
-        {
-          type: "history/stream",
-          entity_ids: entityIds,
-          start_time: new Date(from).toISOString(),
-          minimal_response: true,
-          no_attributes: true,
-          // only real state changes – attribute-only updates are filtered out by HA already
-          significant_changes_only: true,
-        },
+        attributes
+          ? {
+              // attributes need the full states (heavier – only used for attribute series)
+              type: "history/stream",
+              entity_ids: [...new Set(entityIds.map(entityOf))],
+              start_time: new Date(from).toISOString(),
+              minimal_response: false,
+              no_attributes: false,
+              significant_changes_only: false,
+            }
+          : {
+              type: "history/stream",
+              entity_ids: entityIds,
+              start_time: new Date(from).toISOString(),
+              minimal_response: true,
+              no_attributes: true,
+              // only real state changes – attribute-only updates are filtered out by HA already
+              significant_changes_only: true,
+            },
         // we resubscribe ourselves after a reconnect, asking only for the gap
         { resubscribe: false },
       )
@@ -341,15 +377,20 @@ export class DataSource {
       );
   }
 
-  private onStream(msg: StreamMessage): void {
+  private onStream(msg: StreamMessage, sids: string[]): void {
     if (!msg?.states) return;
-    for (const [eid, states] of Object.entries(msg.states)) {
-      const store = this.stores.get(eid);
-      if (!store) continue;
+    for (const sid of sids) {
+      const states = msg.states[entityOf(sid)];
+      const store = this.stores.get(sid);
+      if (!states || !store) continue;
+      const attr = attributeOf(sid);
       let changed = false;
       for (const st of states) {
         const t = toMs(st.lu ?? st.lc);
-        if (Number.isFinite(t)) changed = store.appendRaw(t, toNumber(st.s)) || changed;
+        if (!Number.isFinite(t)) continue;
+        if (attr && !st.a) continue; // no attributes in this message – keep the previous value
+        const v = attr ? toNumber(st.a![attr]) : toNumber(st.s);
+        changed = store.appendRaw(t, v) || changed;
       }
       if (changed) store.notifySubscribers();
     }
@@ -399,7 +440,7 @@ export class DataSource {
       start_time: new Date(start).toISOString(),
       statistic_ids: ids,
       period: this.period,
-      types: ["mean", "state"],
+      types: ["mean", "min", "max", "state"],
     });
   }
 
@@ -426,9 +467,18 @@ export class DataSource {
     for (const row of rows) {
       const t = toMs(row.start);
       if (!Number.isFinite(t) || (s.statT.length && t <= s.statT[s.statT.length - 1])) continue;
+      // HA creates no statistics rows while a sensor is unavailable → mark the gap
+      if (s.statT.length && Number.isFinite(s.statsEnd) && t > s.statsEnd) {
+        s.statT.push(s.statsEnd);
+        s.statV.push(NaN);
+        s.statLo.push(NaN);
+        s.statHi.push(NaN);
+      }
       const v = toNumber(row.mean ?? row.state ?? NaN);
       s.statT.push(t);
       s.statV.push(v);
+      s.statLo.push(row.min != null ? toNumber(row.min) : v);
+      s.statHi.push(row.max != null ? toNumber(row.max) : v);
       const end = row.end !== undefined ? toMs(row.end) : t + len;
       s.statsEnd = Number.isFinite(end) ? end : t + len;
     }
@@ -440,7 +490,7 @@ export class DataSource {
     // only the owner compacts, so a shared store is not fetched twice
     const ids = this.entities.filter((e) => {
       const s = this.stores.get(e)!;
-      return s.owner === this && Number.isFinite(s.statsEnd);
+      return s.owner === this && this.statsFor(e) && Number.isFinite(s.statsEnd);
     });
     if (!ids.length || document.visibilityState === "hidden") return;
     const from = Math.min(...ids.map((e) => this.stores.get(e)!.statsEnd));
