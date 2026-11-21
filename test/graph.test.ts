@@ -34,3 +34,22 @@ test("large input is fast", () => {
   aggregate({ t, v }, 0, n * 1000, 200);
   assert.ok(performance.now() - s < 200, "aggregation too slow");
 });
+
+test("band uses the real min/max of the statistics", async () => {
+  const { bandPath } = await import("../src/graph");
+  const b = aggregate({ t: [0, 50], v: [10, 20], lo: [5, 18], hi: [15, 30] }, 0, 100, 2);
+  assert.deepEqual([...b.bandLo], [5, 18]);
+  assert.deepEqual([...b.bandHi], [15, 30]);
+  assert.deepEqual([...b.mean], [10, 20]);
+  assert.match(bandPath(b, 100, (v) => v), /^M0,15L100,30L100,18L0,5Z$/);
+});
+
+test("time ticks: nice steps, 'now' on the right, nothing next to the y-axis labels", async () => {
+  const { timeTicks } = await import("../src/graph");
+  const t = timeTicks(24, 380);
+  assert.deepEqual(t.map((x) => x.hours), [18, 12, 6, 0]);
+  assert.equal(t[t.length - 1].x, 380);
+  assert.ok(t.every((x) => x.x >= 70));
+  // one week on 380 px: steps of two days, labels in hours from now
+  assert.deepEqual(timeTicks(168, 380).map((x) => x.hours), [96, 48, 0]); // −144 h would collide with the y-axis labels
+});

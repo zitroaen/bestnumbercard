@@ -11,6 +11,9 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 - **Separate y-axes** (scale groups) for series with different units or ranges, with **y-axis labels** on hover or permanently
 - **Labels at the end of each line** (current value and/or icon) that move with the latest value
 - **Min / average / max** of the visible time range, without any extra query
+- **Min/max band**: a shaded band shows the real range around the line. For long time ranges it comes straight from the long-term statistics.
+- **Time axis** with relative labels ("−6 h … now"), on hover or always
+- **Attributes** instead of the state, for example the target temperature of a thermostat
 - **Tap a legend entry** to temporarily hide its line
 - **Alert glow**: the whole card glows, pulses or blinks while a value reaches its alert threshold.
 - **Hide entities depending on their value**. A hidden entity is not shown and its history is not loaded at all.
@@ -34,6 +37,9 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 | Dashed lines at color jumps | – | ✓ `show_thresholds` |
 | Separate y-axes | – | ✓ scale groups |
 | Y-axis labels | – | ✓ on hover or always |
+| Time axis | – | ✓ on hover or always |
+| Min/max band | – | ✓ from long-term statistics, no extra query |
+| Attributes instead of the state | – | ✓ e.g. a thermostat's target temperature |
 | Tooltip with time and value | – | ✓ mouse and touch |
 | Labels / icons at the end of the lines | – | ✓ |
 | Min / avg / max of the time range | – | ✓ `show_extrema` |
@@ -104,6 +110,8 @@ entities:
 | `end_labels` | `none` | Label at the end of each line: `none`, `value`, `icon`, `icon_value` |
 | `tooltip` | `true` | Tooltip on hover. On touch screens: swipe horizontally across the graph. |
 | `y_axis` | `hover` | Min/max labels of each y-axis: `hover`, `always`, `none` |
+| `x_axis` | `hover` | Relative time labels below the graph: `hover`, `always`, `none` |
+| `band` | `false` | Shaded min/max band around every line (can be set per entity) |
 | `show_thresholds` | `false` | Dashed lines with labels at the hard jumps of the color scales |
 | `show_extrema` | `false` | Show min / average / max of the visible time range below each value |
 | `legend_toggle` | `true` | Tap an entity name in the header to hide or show its line |
@@ -124,6 +132,8 @@ When the tap action is `more-info`, tapping a value opens that value's entity.
 | Option | Description |
 |---|---|
 | `entity` | Entity id |
+| `attribute` | Show this attribute instead of the state, e.g. `temperature` of a `climate` entity. Attributes have no long-term statistics, so their history is always loaded with attributes. |
+| `band` | Min/max band for this line (overrides the card option) |
 | `name`, `icon`, `unit` | Overrides |
 | `decimals` | Number of decimals (default: the entity's display precision) |
 | `color` | Line color without a color scale (any CSS color, also `var(--red-color)`) |

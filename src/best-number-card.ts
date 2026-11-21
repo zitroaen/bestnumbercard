@@ -2,8 +2,8 @@ import { LitElement, html, svg, css, nothing, type PropertyValues, type Template
 import pkg from "../package.json";
 import { runAction } from "./actions";
 import { colorAt, gradientStops, timeGradientStops, parseColor, rgbaToCss, sortStops, type GradientStop, type RGBA } from "./color-scale";
-import { DataSource } from "./data";
-import { aggregate, dataRange, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
+import { DataSource, seriesId } from "./data";
+import { aggregate, bandPath, dataRange, timeTicks, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
 import { formatNumber, formatTime, localize } from "./localize";
 import { defaultColor, jumpValues } from "./presets";
 import type { CardConfig, EntityConfig, HassEntity, HomeAssistant } from "./types";
@@ -23,6 +23,7 @@ const DEFAULTS = {
   end_labels: "none",
   legend_icon: "dot",
   y_axis: "hover",
+  x_axis: "hover",
 };
 
 interface SeriesModel {
@@ -44,6 +45,7 @@ interface SeriesModel {
   /** temporarily switched off via the legend */
   off: boolean;
   ext: { min: number; max: number; avg: number };
+  band: boolean;
 }
 
 interface AxisModel {
@@ -72,6 +74,8 @@ interface GraphModel {
   axes: AxisModel[];
   thresholds: ThresholdModel[];
   hasData: boolean;
+  /** x positions of the time labels (relative hours before now) */
+  ticks: Array<{ x: number; hours: number }>;
 }
 
 let uid = 0;
@@ -254,9 +258,8 @@ export class BestNumberCard extends LitElement {
   }
 
   private _isHidden(e: EntityConfig): boolean {
-    const st = this.hass?.states[e.entity];
-    const v = st ? Number(st.state) : NaN;
-    const numeric = st !== undefined && st.state !== "" && Number.isFinite(v);
+    const v = this._current(e);
+    const numeric = Number.isFinite(v);
     if (e.hide_unavailable && !numeric) return true;
     if (numeric && isSet(e.hide_below) && v < Number(e.hide_below)) return true;
     if (numeric && isSet(e.hide_above) && v > Number(e.hide_above)) return true;
@@ -276,7 +279,7 @@ export class BestNumberCard extends LitElement {
     const cfg = this._config;
     if (!cfg || !this.hass || !this.isConnected) return;
     const needed = !this._compact && (cfg.graph ?? DEFAULTS.graph) !== "none";
-    const ids = needed ? this._graphEntities().map((e) => e.entity) : [];
+    const ids = needed ? [...new Set(this._graphEntities().map((e) => this._sid(e)))] : [];
     const threshold = Number(cfg.statistics_threshold ?? DEFAULTS.statistics_threshold);
     const key = ids.length ? JSON.stringify([ids, this._hours, threshold, cfg.statistics_period ?? "auto"]) : "";
     if (key === this._dsKey) {
@@ -334,17 +337,39 @@ export class BestNumberCard extends LitElement {
     return this.hass?.states[e.entity];
   }
 
+  /** series id: the entity, or entity + attribute */
+  private _sid(e: EntityConfig): string {
+    return seriesId(e.entity, e.attribute);
+  }
+
+  /** raw value as string (state or attribute) */
+  private _raw(e: EntityConfig): string | undefined {
+    const st = this._state(e);
+    if (!st) return undefined;
+    if (!e.attribute) return st.state;
+    const a = st.attributes[e.attribute];
+    return a === undefined || a === null ? "" : String(a);
+  }
+
   private _name(e: EntityConfig): string {
-    return e.name ?? this._state(e)?.attributes.friendly_name ?? e.entity;
+    if (e.name) return e.name;
+    const st = this._state(e);
+    const base = st?.attributes.friendly_name ?? e.entity;
+    if (!e.attribute) return base;
+    const attr = st ? (this.hass as any)?.formatEntityAttributeName?.(st, e.attribute) : undefined;
+    return `${base} · ${attr ?? e.attribute}`;
   }
 
   private _unit(e: EntityConfig): string {
-    return e.unit ?? this._state(e)?.attributes.unit_of_measurement ?? "";
+    if (e.unit !== undefined) return e.unit;
+    if (!e.attribute) return this._state(e)?.attributes.unit_of_measurement ?? "";
+    // e.g. the target temperature of a thermostat uses the system's temperature unit
+    return /temp/i.test(e.attribute) ? (this.hass?.config?.unit_system?.temperature ?? "") : "";
   }
 
   private _decimals(e: EntityConfig, raw?: string): number | undefined {
     if (isSet(e.decimals)) return Number(e.decimals);
-    const p = this.hass?.entities?.[e.entity]?.display_precision;
+    const p = e.attribute ? undefined : this.hass?.entities?.[e.entity]?.display_precision;
     if (typeof p === "number") return p;
     if (raw !== undefined) {
       const m = /\.(\d+)$/.exec(raw);
@@ -356,15 +381,17 @@ export class BestNumberCard extends LitElement {
   private _formatState(e: EntityConfig): string {
     const st = this._state(e);
     if (!st) return localize(this.hass, "card.not_found");
-    const v = Number(st.state);
-    if (st.state === "" || !Number.isFinite(v)) {
+    const raw = this._raw(e) ?? "";
+    const v = Number(raw);
+    if (raw === "" || !Number.isFinite(v)) {
+      if (e.attribute) return raw || "–";
       return (this.hass as any)?.formatEntityState?.(st) ?? st.state;
     }
-    return formatNumber(this.hass, v, this._decimals(e, st.state));
+    return formatNumber(this.hass, v, this._decimals(e, raw));
   }
 
   private _formatValue(e: EntityConfig, v: number): string {
-    const d = this._decimals(e, this._state(e)?.state);
+    const d = this._decimals(e, this._raw(e));
     return formatNumber(this.hass, v, d === undefined ? 1 : d);
   }
 
@@ -382,8 +409,8 @@ export class BestNumberCard extends LitElement {
   }
 
   private _current(e: EntityConfig): number {
-    const st = this._state(e);
-    return st && st.state !== "" ? Number(st.state) : NaN;
+    const raw = this._raw(e);
+    return raw !== undefined && raw !== "" ? Number(raw) : NaN;
   }
 
   private _applyTheme(): void {
@@ -422,6 +449,10 @@ export class BestNumberCard extends LitElement {
       if (this._config!.alert_color) this.style.setProperty("--bnc-alert-color", this._config!.alert_color);
       else this.style.removeProperty("--bnc-alert-color");
     }
+  }
+
+  private _bandOn(e: EntityConfig): boolean {
+    return e.band ?? this._config?.band ?? false;
   }
 
   private _setCompact(value: boolean): void {
@@ -468,7 +499,7 @@ export class BestNumberCard extends LitElement {
     if (!this._ds || !this._width) return undefined;
     const ents = this._graphEntities();
     const height = this._graphHeight();
-    const plotW = Math.max(20, this._width - this._labelMargin(ents.filter((e) => !this._off.has(e.entity))));
+    const plotW = Math.max(20, this._width - this._labelMargin(ents.filter((e) => !this._off.has(this._sid(e)))));
     const detail = (Number(cfg.detail) === 2 ? 2 : 1) as 1 | 2;
     const key = JSON.stringify([
       this._tick, this._cfgVersion, this._dsKey, this._width, height, plotW, detail, [...this._off], this._ds.loaded,
@@ -478,21 +509,23 @@ export class BestNumberCard extends LitElement {
     const end = Date.now();
     const start = end - this._hours * 3_600_000;
     const n = Math.max(2, Math.round(plotW / (detail === 2 ? 2 : 8)));
-    const shown = ents.filter((e) => !this._off.has(e.entity));
+    const shown = ents.filter((e) => !this._off.has(this._sid(e)));
     const multi = shown.length > 1;
 
     // aggregate first, then build shared scales per group (only from series that are switched on)
     const agg = ents.map((e) => {
-      const data = this._ds!.series(e.entity) ?? { t: [], v: [] };
+      const data = this._ds!.series(this._sid(e)) ?? { t: [], v: [] };
       return { e, b: aggregate(data, start, end, n) };
     });
     const groups = new Map<string, { lo: number; hi: number; first?: EntityConfig }>();
     for (const { e, b } of agg) {
       const g = e.scale || "default";
       const cur = groups.get(g) ?? { lo: Infinity, hi: -Infinity };
-      if (!this._off.has(e.entity) || !groups.has(g)) {
-        const [lo, hi] = dataRange([b]);
-        if (!this._off.has(e.entity)) {
+      const off = this._off.has(this._sid(e));
+      if (!off || !groups.has(g)) {
+        // with a band the scale must also fit the real minimum / maximum
+        const [lo, hi] = this._bandOn(e) ? bandRange(b) : dataRange([b]);
+        if (!off) {
           cur.lo = Math.min(cur.lo, lo);
           cur.hi = Math.max(cur.hi, hi);
           cur.first ??= e;
@@ -532,7 +565,7 @@ export class BestNumberCard extends LitElement {
       let sum = 0;
       let cnt = 0;
       for (const v of b.mean) if (Number.isFinite(v)) (sum += v), cnt++;
-      const [mn, mx] = dataRange([b]);
+      const [mn, mx] = bandRange(b);
       if (cnt) hasData = true;
       const m: SeriesModel = {
         cfg: e,
@@ -545,8 +578,9 @@ export class BestNumberCard extends LitElement {
         color: this._baseColor(e),
         lineWidth,
         fill: e.fill ?? !multi,
-        off: this._off.has(e.entity),
+        off: this._off.has(this._sid(e)),
         ext: { min: mn, max: mx, avg: cnt ? sum / cnt : NaN },
+        band: this._bandOn(e),
       };
       if (e.color_scale?.length) {
         m.gradId = `${this._uid}-g${index}`;
@@ -581,7 +615,8 @@ export class BestNumberCard extends LitElement {
       }
     }
 
-    this._model = { key, width: this._width, plotW, height, start, end, series, axes, thresholds, hasData };
+    const ticks = timeTicks(this._hours, plotW);
+    this._model = { key, width: this._width, plotW, height, start, end, series, axes, thresholds, hasData, ticks };
     return this._model;
   }
 
@@ -804,12 +839,12 @@ export class BestNumberCard extends LitElement {
     return html`${header}
       <div class="values fade ${many ? "multi" : ""} ${showHeader ? "" : "noheader"}">
         ${items.map((e) => {
-          const off = this._off.has(e.entity);
+          const off = this._off.has(this._sid(e));
           return html`<div class="item ${off ? "off" : ""}" data-entity=${e.entity}>
             ${many
               ? html`<div
                   class="item-name ${toggle ? "toggle" : ""}"
-                  data-toggle=${toggle ? e.entity : ""}
+                  data-toggle=${toggle ? this._sid(e) : ""}
                   title=${toggle ? localize(this.hass, "card.toggle_series") : ""}
                 >
                   ${this._renderMarker(e)}<span>${this._name(e)}</span>
@@ -850,8 +885,9 @@ export class BestNumberCard extends LitElement {
     const height = this._graphHeight();
     const loading = !model || (!this._ds?.loaded && !model.hasData);
     const yAxis = this._config!.y_axis ?? DEFAULTS.y_axis;
+    const xAxis = this._config!.x_axis ?? DEFAULTS.x_axis;
     return html`<div
-      class="graph fade ${this._hoverX !== null ? "active" : ""}"
+      class="graph fade ${this._hoverX !== null ? "active" : ""} ${xAxis === "always" ? "xa-always" : ""}"
       style="height:${height}px"
       @pointerdown=${this._onGraphDown}
       @pointermove=${this._onMove}
@@ -864,6 +900,7 @@ export class BestNumberCard extends LitElement {
         : html`${this._renderSvg(model!)} ${this._renderEndLabels(model!)}
           ${model!.hasData ? nothing : html`<div class="nodata">${localize(this.hass, "card.no_data")}</div>`}
           ${yAxis !== "none" && model!.hasData ? this._renderAxes(model!, yAxis) : nothing}
+          ${xAxis !== "none" && model!.hasData ? this._renderTimeAxis(model!, xAxis) : nothing}
           ${this._renderTooltip(model!)}`}
     </div>`;
   }
@@ -877,6 +914,21 @@ export class BestNumberCard extends LitElement {
           <span style=${c(a.hi)}>${fmt(a.entity, a.hi)}</span><span style=${c(a.lo)}>${fmt(a.entity, a.lo)}</span>
         </div>`;
       })}
+    </div>`;
+  }
+
+  private _renderTimeAxis(m: GraphModel, mode: string): TemplateResult {
+    const l = (k: string) => localize(this.hass, k);
+    const label = (h: number) => {
+      if (h === 0) return l("card.now");
+      if (h < 1) return `−${Math.round(h * 60)} min`;
+      if (h < 48) return `−${+h.toFixed(1)} h`;
+      return `−${+(h / 24).toFixed(1)} d`;
+    };
+    return html`<div class="xaxis ${mode === "hover" ? "hover" : ""}">
+      ${m.ticks.map(
+        (t) => html`<span class=${t.hours === 0 ? "now" : ""} style="left:${t.x}px">${label(t.hours)}</span>`,
+      )}
     </div>`;
   }
 
@@ -904,10 +956,14 @@ export class BestNumberCard extends LitElement {
       ${m.thresholds.map(
         (t) => svg`<line class="threshold" x1="0" x2=${m.plotW} y1=${t.y} y2=${t.y} style="stroke:${t.color}"></line>`,
       )}
+      ${m.ticks.map(
+        (t) => (t.hours === 0 ? nothing : svg`<line class="tick" x1=${t.x} x2=${t.x} y1="0" y2=${m.height}></line>`),
+      )}
       ${shown.map((s) => {
         const paint = s.gradId ? `url(#${s.gradId})` : s.color;
         const fillPaint = s.fillGradId ? `url(#${s.fillGradId})` : paint;
         return svg`<g>
+          ${s.band ? svg`<path class="band" d=${bandPath(s.buckets, m.plotW, s.y)} style="fill:${paint}"></path>` : nothing}
           ${s.fill
             ? s.segs.map((seg) => svg`<path class="fill" d=${fillPath(seg, smooth, m.height)} style="fill:${fillPaint}"></path>`)
             : nothing}
@@ -1184,6 +1240,52 @@ export class BestNumberCard extends LitElement {
       opacity: 0.15;
       stroke: none;
     }
+    .band {
+      opacity: 0.16;
+      stroke: none;
+    }
+    .tick {
+      stroke: var(--divider-color, rgba(0, 0, 0, 0.12));
+      stroke-width: 1;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .graph:hover .tick,
+    .graph.active .tick,
+    .graph.xa-always .tick {
+      opacity: 1;
+    }
+    .xaxis {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 1px;
+      height: 12px;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      font-size: 10px;
+      line-height: 12px;
+      color: var(--secondary-text-color);
+    }
+    .xaxis.hover {
+      opacity: 0;
+    }
+    .graph:hover .xaxis.hover,
+    .graph.active .xaxis.hover {
+      opacity: 1;
+    }
+    .xaxis span {
+      position: absolute;
+      bottom: 0;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      padding: 0 2px;
+      border-radius: 3px;
+      background: color-mix(in srgb, var(--card-background-color, #fff) 75%, transparent);
+    }
+    .xaxis span.now {
+      transform: translateX(-100%);
+    }
     .threshold {
       stroke-width: 1;
       stroke-dasharray: 4 4;
@@ -1362,6 +1464,17 @@ export class BestNumberCard extends LitElement {
       color: var(--secondary-text-color);
     }
   `;
+}
+
+/** Real minimum / maximum of the buckets (incl. statistics min/max). */
+function bandRange(b: Buckets): [number, number] {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let i = 0; i < b.bandLo.length; i++) {
+    if (b.bandLo[i] < lo) lo = b.bandLo[i];
+    if (b.bandHi[i] > hi) hi = b.bandHi[i];
+  }
+  return [lo, hi];
 }
 
 function axesCount(groups: Map<string, { first?: EntityConfig }>): number {

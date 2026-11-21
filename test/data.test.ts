@@ -162,3 +162,38 @@ test("taking over while still loading statistics does not subscribe twice", asyn
   assert.equal(active.length, 1, "exactly one live subscription");
   ds2.dispose();
 });
+
+test("attributes: full states are streamed, the attribute value is used, no statistics", async () => {
+  const { hass, subs, ws } = fakeHass({});
+  const { seriesId } = await import("../src/data");
+  const sid = seriesId("climate.living", "temperature");
+  const ds = new DataSource(hass, opts([sid, "sensor.a"], () => {}, 24));
+  await ds.start();
+  // statistics only for the state series
+  assert.deepEqual(ws[0].statistic_ids, ["sensor.a"]);
+  const attrSub = subs.find((s) => s.msg.no_attributes === false)!;
+  assert.ok(attrSub, "separate subscription with attributes");
+  assert.deepEqual(attrSub.msg.entity_ids, ["climate.living"]);
+  const now = Date.now() / 1000;
+  attrSub.cb({
+    states: {
+      "climate.living": [
+        { s: "heat", a: { temperature: 21 }, lu: now - 100 },
+        { s: "heat", a: { temperature: 21.5 }, lu: now - 50 },
+      ],
+    },
+  });
+  assert.deepEqual(ds.series(sid)!.v, [21, 21.5]);
+  ds.dispose();
+});
+
+test("statistics min/max are kept for the band", async () => {
+  const now = Date.now();
+  const t0 = Math.floor((now - 20 * H) / 300_000) * 300_000;
+  const { hass } = fakeHass({ "sensor.a": [{ start: t0, end: t0 + 300_000, mean: 10, min: 5, max: 15 }] });
+  const ds = new DataSource(hass, opts(["sensor.a"], () => {}, 24));
+  await ds.start();
+  const s = ds.series("sensor.a")!;
+  assert.deepEqual([s.v[0], s.lo![0], s.hi![0]], [10, 5, 15]);
+  ds.dispose();
+});

@@ -113,6 +113,8 @@ export class BestNumberCardEditor extends LitElement {
       legend_icon: "dot",
       fill_gradient: "value",
       y_axis: "hover",
+      x_axis: "hover",
+      band: false,
       show_thresholds: false,
       show_extrema: false,
       legend_toggle: true,
@@ -165,6 +167,8 @@ export class BestNumberCardEditor extends LitElement {
                 grid([
                   { name: "detail", selector: select(h, ["1", "2"], "opt.detail_") },
                   { name: "y_axis", selector: select(h, ["hover", "always", "none"]) },
+                  { name: "x_axis", selector: select(h, ["hover", "always", "none"]) },
+                  { name: "band", selector: { boolean: {} } },
                 ]),
                 { name: "end_labels", selector: select(h, ["none", "value", "icon", "icon_value"]) },
                 ...(hasScale
@@ -266,6 +270,7 @@ export class BestNumberCardEditor extends LitElement {
     const graphOn = this._config!.graph !== "none" && e.show_graph !== false;
     return [
       { name: "entity", selector: { entity: {} } },
+      { name: "attribute", selector: { attribute: { entity_id: e.entity } } },
       grid([
         { name: "name", selector: { text: {} } },
         { name: "icon", selector: { icon: {} } },
@@ -315,7 +320,12 @@ export class BestNumberCardEditor extends LitElement {
           grid([
             { name: "show_value", selector: { boolean: {} } },
             { name: "show_graph", selector: { boolean: {} } },
-            ...(graphOn ? [{ name: "fill", selector: { boolean: {} } }] : []),
+            ...(graphOn
+              ? [
+                  { name: "fill", selector: { boolean: {} } },
+                  { name: "band", selector: { boolean: {} } },
+                ]
+              : []),
           ]),
           ...(graphOn && hasScale && e.fill !== false
             ? [{ name: "fill_gradient", selector: select(h, ["value", "time"], "opt.fill_") }]
@@ -332,14 +342,9 @@ export class BestNumberCardEditor extends LitElement {
       w.push(this._l("editor.warn_hide_range"));
     }
     const st = this.hass?.states[e.entity];
-    if (
-      st &&
-      this._usesStatistics &&
-      this._config!.graph !== "none" &&
-      e.show_graph !== false &&
-      e.entity.startsWith("sensor.") &&
-      !st.attributes.state_class
-    ) {
+    const graphed = this._usesStatistics && this._config!.graph !== "none" && e.show_graph !== false;
+    if (st && graphed && e.attribute) w.push(this._l("editor.warn_attribute"));
+    else if (st && graphed && e.entity.startsWith("sensor.") && !st.attributes.state_class) {
       w.push(this._l("editor.warn_no_statistics"));
     }
     return w;
@@ -624,10 +629,18 @@ export class BestNumberCardEditor extends LitElement {
 
   // ------------------------------------------------------------- entity panel
 
-  private _isHiddenNow(e: EntityConfig): boolean {
+  private _rawValue(e: EntityConfig): string | undefined {
     const st = this.hass?.states[e.entity];
-    const v = st ? Number(st.state) : NaN;
-    const numeric = !!st && st.state !== "" && Number.isFinite(v);
+    if (!st) return undefined;
+    if (!e.attribute) return st.state;
+    const a = st.attributes[e.attribute];
+    return a === undefined || a === null ? "" : String(a);
+  }
+
+  private _isHiddenNow(e: EntityConfig): boolean {
+    const raw = this._rawValue(e);
+    const v = raw ? Number(raw) : NaN;
+    const numeric = Number.isFinite(v);
     if (e.hide_unavailable && !numeric) return true;
     if (numeric && isSet(e.hide_below) && v < Number(e.hide_below)) return true;
     if (numeric && isSet(e.hide_above) && v > Number(e.hide_above)) return true;
@@ -636,10 +649,11 @@ export class BestNumberCardEditor extends LitElement {
 
   private _renderEntity(e: EntityConfig, i: number): TemplateResult {
     const st = this.hass?.states[e.entity];
-    const title = e.name || st?.attributes.friendly_name || e.entity;
-    const unit = e.unit ?? st?.attributes.unit_of_measurement ?? "";
-    const numeric = !!st && st.state !== "" && Number.isFinite(Number(st.state));
-    const value = st ? (numeric ? formatNumber(this.hass, Number(st.state)) : st.state) : "";
+    const title = (e.name || st?.attributes.friendly_name || e.entity) + (e.attribute && !e.name ? ` · ${e.attribute}` : "");
+    const unit = e.unit ?? (e.attribute ? "" : (st?.attributes.unit_of_measurement ?? ""));
+    const raw = this._rawValue(e) ?? "";
+    const numeric = raw !== "" && Number.isFinite(Number(raw));
+    const value = numeric ? formatNumber(this.hass, Number(raw)) : raw;
     const warnings = this._entityWarnings(e);
     const hidden = this._isHiddenNow(e);
     return html`<div class="entity-row ${this._drag?.from === i ? "dragging" : ""}" style=${this._rowStyle(i)}>

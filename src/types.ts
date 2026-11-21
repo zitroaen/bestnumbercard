@@ -23,6 +23,7 @@ export interface HomeAssistant {
     time_format?: string;
   };
   themes?: { themes: Record<string, Record<string, string>>; darkMode?: boolean };
+  config?: { unit_system?: { temperature?: string } };
   connection: {
     subscribeMessage<T>(
       callback: (msg: T) => void,
@@ -66,6 +67,10 @@ export type EndLabels = "none" | "value" | "icon" | "icon_value";
 
 export interface EntityConfig {
   entity: string;
+  /** Show this attribute instead of the state (e.g. the target temperature of a thermostat). */
+  attribute?: string;
+  /** Shaded min/max band around the line (overrides the card option). */
+  band?: boolean;
   name?: string;
   icon?: string;
   unit?: string;
@@ -120,6 +125,10 @@ export interface CardConfig {
   show_thresholds?: boolean;
   /** Show min / average / max of the visible window below the values. */
   show_extrema?: boolean;
+  /** Time labels below the graph: on hover (default), always or never. */
+  x_axis?: "hover" | "always" | "none";
+  /** Shaded band between the minimum and maximum of every point in time. */
+  band?: boolean;
   /** Tap a legend entry to hide/show its line (default true). */
   legend_toggle?: boolean;
   /** How the card signals an alert: pulsing glow (default), hard blinking or a steady glow. */
@@ -140,4 +149,7 @@ export interface CardConfig {
 export interface SeriesData {
   t: number[]; // ms epoch
   v: number[]; // NaN = unavailable / gap
+  /** optional real minimum / maximum per point (long-term statistics); default = v */
+  lo?: number[];
+  hi?: number[];
 }
