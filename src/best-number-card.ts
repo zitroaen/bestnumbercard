@@ -27,6 +27,7 @@ const DEFAULTS = {
   y_axis: "hover",
   x_axis: "hover",
   peak_percentile: 95,
+  peak_margin: 12,
 };
 
 interface SeriesModel {
@@ -737,8 +738,9 @@ export class BestNumberCard extends LitElement {
       // with event pins the lines keep clear of the event strip
       const bottom = height - lineWidth / 2 - inset - (events.length ? EVENT_STRIP : 0);
       const peak = groups.get(e.scale || "default")!.peak;
-      // the lines may rise to just below the card's top edge
-      const y = scaleY(lo, hi, top, bottom, peak !== undefined ? { max: peak, room: room + top - 4 } : undefined);
+      // the lines may rise up to peak_margin px below the card's top edge
+      const margin = Math.max(0, isSet(cfg.peak_margin) ? Number(cfg.peak_margin) || 0 : DEFAULTS.peak_margin);
+      const y = scaleY(lo, hi, top, bottom, peak !== undefined ? { max: peak, room: Math.max(0, room + top - margin) } : undefined);
       if (peak !== undefined) peaked = true;
       let sum = 0;
       let cnt = 0;

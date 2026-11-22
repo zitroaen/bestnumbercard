@@ -1,6 +1,6 @@
 {
   "name": "best-number-card",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "description": "A Home Assistant dashboard card like the built-in sensor card, but for multiple entities, with per-series color scales and efficient data loading.",
   "type": "module",
   "scripts": {

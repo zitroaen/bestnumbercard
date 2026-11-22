@@ -205,6 +205,8 @@ export interface CardConfig {
   peak_overflow?: boolean;
   /** Share of the values (in %) the normal graph area covers with peak_overflow (default 95) */
   peak_percentile?: number;
+  /** With peak_overflow: space in px kept free between the highest peak and the card's top edge (default 12) */
+  peak_margin?: number;
   /** Font size of the values in px (default: like the sensor card). */
   font_size?: number;
   /** Tap a legend entry to hide/show its line (default true). */

@@ -117,6 +117,7 @@ export class BestNumberCardEditor extends LitElement {
       band: false,
       peak_overflow: false,
       peak_percentile: 95,
+      peak_margin: 12,
       show_thresholds: false,
       show_extrema: false,
       legend_toggle: true,
@@ -186,7 +187,10 @@ export class BestNumberCardEditor extends LitElement {
                 grid([
                   { name: "peak_overflow", selector: { boolean: {} } },
                   ...(c.peak_overflow
-                    ? [{ name: "peak_percentile", selector: { number: { mode: "slider", min: 80, max: 100, step: 1, unit_of_measurement: "%" } } }]
+                    ? [
+                        { name: "peak_percentile", selector: { number: { mode: "slider", min: 80, max: 100, step: 1, unit_of_measurement: "%" } } },
+                        { name: "peak_margin", selector: { number: { mode: "box", min: 0, max: 200, step: 1, unit_of_measurement: "px" } } },
+                      ]
                     : []),
                 ]),
                 { name: "end_labels", selector: select(h, ["none", "value", "icon", "icon_value"]) },
