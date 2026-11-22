@@ -1173,6 +1173,7 @@ export class BestNumberCard extends LitElement {
     const key = JSON.stringify([
       m.key, dark, lat, lon, stars, cfg.night_color, cfg.night_opacity, cfg.dawn_color, cfg.dusk_color, cfg.day_color,
       cfg.twilight_opacity, cfg.day_opacity, cfg.stars_brightness, cfg.stars_twinkle, cfg.stars_density, cfg.stars_color,
+      cfg.stars_style, cfg.sky_top,
     ]);
     if (this._dnCache?.key === key) return this._dnCache.tpl;
 
@@ -1214,40 +1215,82 @@ export class BestNumberCard extends LitElement {
       this._dnCache = { key, tpl: html`` };
       return this._dnCache.tpl;
     }
+    // sky_top (default): the night is strongest at the top and lighter towards the bottom,
+    // the stars only appear in the upper part – the area behind the lines stays calm
+    const top = cfg.sky_top !== false;
+    const vMask = top
+      ? svg`<linearGradient id=${`${id}-v`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#fff"></stop><stop offset="1" stop-color="#fff" stop-opacity="0.5"></stop>
+          </linearGradient>
+          <mask id=${`${id}-vm`}><rect width=${m.width} height="100%" fill=${`url(#${id}-v)`}></rect></mask>
+          <linearGradient id=${`${id}-sv`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0.2" stop-color="#fff"></stop><stop offset="0.72" stop-color="#fff" stop-opacity="0"></stop>
+          </linearGradient>
+          <mask id=${`${id}-svm`}><rect width=${m.width} height="100%" fill=${`url(#${id}-sv)`}></rect></mask>`
+      : nothing;
+    const nightRect = top && night.rect !== nothing ? svg`<g mask=${`url(#${id}-vm)`}>${night.rect}</g>` : night.rect;
 
-    // stars: stable field per card, masked by the night
+    // stars: stable field per card, masked by the night. Like a real sky: many tiny faint
+    // stars and only a few bright ones, slightly tinted, fewer towards the horizon.
     let starField: TemplateResult | typeof nothing = nothing;
     let starMask: TemplateResult | typeof nothing = nothing;
     const brightness = pct(cfg.stars_brightness, 0.8);
     const twinkle = pct(cfg.stars_twinkle, 0.5);
     const density = pct(cfg.stars_density, 1);
+    const style = cfg.stars_style ?? "glow";
     if (stars && night.rect !== nothing && brightness > 0 && density > 0) {
       const rnd = seededRandom(parseInt(hash(this._uid + m.width), 36));
-      const count = Math.round(((m.width * 400) / 1300) * density);
-      // light theme: darker, slightly bigger stars, otherwise they disappear on the bright card
-      const fill = cfg.stars_color || (dark ? "#ffffff" : "#26367a");
+      const count = Math.round(m.width * (top ? 0.24 : 0.28) * density);
+      // light theme: darker stars, otherwise they disappear on the bright card
+      const tints = cfg.stars_color
+        ? [cfg.stars_color]
+        : dark
+          ? ["#ffffff", "#ffffff", "#ffffff", "#d6e4ff", "#fff0d4"]
+          : ["#26367a", "#26367a", "#3b4f9e", "#45376f"];
       const dots = [];
+      const glows = [];
       for (let i = 0; i < count; i++) {
-        const r = (dark ? 0.5 : 0.65) + rnd() * (dark ? 1.0 : 1.0);
-        const o = Math.min(1, (0.45 + rnd() * 0.55) * brightness * (dark ? 1 : 0.9));
-        const tw = rnd() < twinkle * 0.8;
-        const dur = 1.6 + rnd() * 3;
+        const mag = Math.pow(rnd(), 3.2); // 0 = faint … 1 = bright, most stars are faint
+        const x = rnd() * m.width;
+        const yf = top ? Math.pow(rnd(), 1.5) * 0.72 : Math.pow(rnd(), 1.4);
+        const fade = top ? 1 : 1 - yf * 0.6;
+        const r = (dark ? 0.35 : 0.5) + mag * 1.7;
+        const o = Math.min(1, (0.3 + 0.7 * mag) * brightness * fade * (dark ? 1 : 0.9));
+        const color = tints[Math.floor(rnd() * tints.length)];
+        const tw = rnd() < twinkle * (0.3 + mag);
+        const dur = 3 + rnd() * 4;
+        const anim = tw ? `animation-duration:${dur.toFixed(1)}s;animation-delay:${(-rnd() * dur).toFixed(1)}s` : "";
+        const cy = `${(yf * 100).toFixed(2)}%`;
+        if (style !== "dot" && mag > 0.5) {
+          glows.push(svg`<circle cx=${x.toFixed(1)} cy=${cy} r=${(r * 4.5).toFixed(1)} fill=${`url(#${id}-glow)`} opacity=${(o * 0.7).toFixed(2)}></circle>`);
+        }
+        if (style === "sparkle" && mag > 0.62) {
+          // small four-pointed sparkle for the brightest stars
+          const L = r * 3.2;
+          const d = `M${-L},0Q0,0 0,${-L}Q0,0 ${L},0Q0,0 0,${L}Q0,0 ${-L},0Z`;
+          dots.push(svg`<svg x=${x.toFixed(1)} y=${cy} overflow="visible"><path class=${tw ? "star tw" : "star"} d=${d} fill=${color} fill-opacity=${o.toFixed(2)} style=${anim}></path></svg>`);
+          continue;
+        }
         dots.push(
-          svg`<circle class=${tw ? "star tw" : "star"} cx=${(rnd() * m.width).toFixed(1)} cy=${(rnd() * 400).toFixed(1)}
-            r=${r.toFixed(2)} fill=${fill} fill-opacity=${o.toFixed(2)}
-            style=${tw ? `animation-duration:${dur.toFixed(2)}s;animation-delay:${(-rnd() * dur).toFixed(2)}s` : ""}></circle>`,
+          svg`<circle class=${tw ? "star tw" : "star"} cx=${x.toFixed(1)} cy=${cy} r=${r.toFixed(2)} fill=${color} fill-opacity=${o.toFixed(2)} style=${anim}></circle>`,
         );
       }
       const maskStops = compact(smp.map((p) => [p.o, p.n] as [number, number]), (a, b) => a[1] === b[1]);
       starMask = svg`<linearGradient id=${`${id}-w`} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">
           ${maskStops.map(([o, n]) => svg`<stop offset=${o} stop-color="#fff" stop-opacity=${n.toFixed(3)}></stop>`)}</linearGradient>
-        <mask id=${`${id}-m`}><rect width=${m.width} height="100%" fill=${`url(#${id}-w)`}></rect></mask>`;
-      starField = svg`<g mask=${`url(#${id}-m)`}>${dots}</g>`;
+        <mask id=${`${id}-m`}><rect width=${m.width} height="100%" fill=${`url(#${id}-w)`}></rect></mask>
+        <radialGradient id=${`${id}-glow`}>
+          <stop offset="0" stop-color=${tints[0]} stop-opacity="0.8"></stop>
+          <stop offset="0.3" stop-color=${tints[0]} stop-opacity="0.25"></stop>
+          <stop offset="1" stop-color=${tints[0]} stop-opacity="0"></stop>
+        </radialGradient>`;
+      const field = svg`${glows}${dots}`;
+      starField = svg`<g mask=${`url(#${id}-m)`}>${top ? svg`<g mask=${`url(#${id}-svm)`}>${field}</g>` : field}</g>`;
     }
     const tpl = html`<div class="daynight" aria-hidden="true">
       <svg width=${m.width} height="100%">
-        <defs>${day.def} ${twil.def} ${night.def} ${starMask}</defs>
-        ${day.rect} ${twil.rect} ${night.rect} ${starField}
+        <defs>${day.def} ${twil.def} ${night.def} ${vMask} ${starMask}</defs>
+        ${day.rect} ${twil.rect} ${nightRect} ${starField}
       </svg>
     </div>`;
     this._dnCache = { key, tpl };
@@ -1972,8 +2015,8 @@ export class BestNumberCard extends LitElement {
         transform: scale(1);
       }
       50% {
-        opacity: 0.1;
-        transform: scale(0.55);
+        opacity: 0.35;
+        transform: scale(0.8);
       }
     }
     @media (prefers-reduced-motion: reduce) {
