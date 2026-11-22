@@ -13,6 +13,11 @@ export function runAction(
 ): boolean {
   if (!action || action.action === "none") return true;
   const a = action as any;
+  // optional "Are you sure?" dialog, like the built-in cards
+  if (a.confirmation) {
+    const text = typeof a.confirmation === "object" && a.confirmation.text ? a.confirmation.text : "Are you sure?";
+    if (!window.confirm(text)) return true;
+  }
   switch (action.action) {
     case "more-info": {
       const id = a.entity ?? entityId;
@@ -39,6 +44,10 @@ export function runAction(
       hass.callService(domain, service, a.data ?? a.service_data, a.target);
       return true;
     }
+    case "fire-dom-event":
+      // e.g. browser_mod popups
+      fire(node, "ll-custom", a);
+      return true;
     default:
       return false;
   }

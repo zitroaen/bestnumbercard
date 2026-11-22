@@ -99,6 +99,7 @@ export class BestNumberCardEditor extends LitElement {
   // ------------------------------------------------------------- card options
 
   private _defaults(): Record<string, unknown> {
+    const dark = !!this.hass?.themes?.darkMode;
     return {
       graph: "line",
       detail: 1,
@@ -117,7 +118,6 @@ export class BestNumberCardEditor extends LitElement {
       band: false,
       peak_overflow: false,
       peak_percentile: 95,
-      peak_margin: 12,
       show_thresholds: false,
       show_extrema: false,
       legend_toggle: true,
@@ -128,12 +128,24 @@ export class BestNumberCardEditor extends LitElement {
       day_night: false,
       stars: true,
       sun_times: true,
+      // show the real defaults on the sliders (they depend on the theme, like in the card)
+      night_opacity: dark ? 55 : 13,
+      twilight_opacity: dark ? 30 : 20,
+      day_opacity: dark ? 8 : 6,
+      stars_brightness: 80,
+      stars_twinkle: 50,
+      stars_density: 100,
+      peak_margin: 12,
       value_display: this._config!.entities.length === 1 ? "primary" : "all",
     };
   }
 
-  /** The schema only contains fields that matter for the current configuration. */
-  private _cardSchema() {
+  /**
+   * Card options, split into sections. Each section is its own ha-form inside an expansion
+   * panel, so custom fields (colours, event list …) can sit in the section they belong to.
+   * The schemas only contain fields that matter for the current configuration.
+   */
+  private _sections() {
     const h = this.hass;
     const c = this._config!;
     const data = this._cardData();
@@ -142,164 +154,159 @@ export class BestNumberCardEditor extends LitElement {
     const multi = c.entities.length > 1;
     const compactOnTap = c.tap_action?.action === "toggle-compact";
     const grid = (schema: any[]) => ({ type: "grid", name: "", schema });
+    const px = (min: number, max: number) => ({ number: { mode: "box", min, max, step: 1, unit_of_measurement: "px" } });
+    const pct = (min: number, max: number, step = 1) => ({ number: { mode: "slider", min, max, step, unit_of_measurement: "%" } });
 
-    return [
-      {
-        type: "expandable",
-        flatten: true,
-        expanded: true,
-        title: this._l("editor.section.general"),
-        schema: [
-          grid([
-            { name: "name", selector: { text: {} } },
-            { name: "icon", selector: { icon: {} } },
-          ]),
-          grid([
-            { name: "value_display", selector: select(h, ["all", "primary", "none"]) },
-            ...(data.value_display === "all" || multi ? [{ name: "legend_icon", selector: select(h, ["dot", "icon", "none"]) }] : []),
-          ]),
-          grid([
-            ...(hasGraph ? [{ name: "show_extrema", selector: { boolean: {} } }] : []),
-            { name: "font_size", selector: { number: { mode: "box", min: 8, max: 96, step: 1, unit_of_measurement: "px" } } },
-          ]),
+    return {
+      general: [
+        grid([
+          { name: "name", selector: { text: {} } },
+          { name: "icon", selector: { icon: {} } },
+        ]),
+        { name: "value_display", selector: select(h, ["all", "primary", "none"]) },
+        ...(data.value_display === "all" || multi ? [{ name: "legend_icon", selector: select(h, ["dot", "icon", "none"]) }] : []),
+        grid([
+          { name: "font_size", selector: px(8, 96) },
           { name: "unavailable_text", selector: { text: {} } },
-          { name: "compact", selector: { boolean: {} } },
-        ],
-      },
-      {
-        type: "expandable",
-        flatten: true,
-        expanded: true,
-        title: this._l("editor.section.graph"),
-        schema: [
-          grid([
-            { name: "graph", selector: select(h, ["line", "none"]) },
-            ...(hasGraph ? [{ name: "hours_to_show", selector: { number: { mode: "box", min: 0.1, step: "any" } } }] : []),
-          ]),
-          ...(hasGraph
-            ? [
-                grid([
-                  { name: "detail", selector: select(h, ["1", "2"], "opt.detail_") },
-                  { name: "y_axis", selector: select(h, ["hover", "always", "none"]) },
-                  { name: "x_axis", selector: select(h, ["hover", "always", "none"]) },
-                  { name: "band", selector: { boolean: {} } },
-                ]),
-                grid([
+        ]),
+        ...(hasGraph ? [{ name: "show_extrema", selector: { boolean: {} } }] : []),
+      ],
+      graph: [
+        grid([
+          { name: "graph", selector: select(h, ["line", "none"]) },
+          ...(hasGraph ? [{ name: "hours_to_show", selector: { number: { mode: "box", min: 0.1, step: "any", unit_of_measurement: "h" } } }] : []),
+        ]),
+        ...(hasGraph
+          ? [
+              { name: "detail", selector: select(h, ["1", "2"], "opt.detail_") },
+              grid([
+                { name: "y_axis", selector: select(h, ["hover", "always", "none"]) },
+                { name: "x_axis", selector: select(h, ["hover", "always", "none"]) },
+              ]),
+              { name: "end_labels", selector: select(h, ["none", "value", "icon", "icon_value"]) },
+              grid([
+                { name: "smoothing", selector: { boolean: {} } },
+                { name: "band", selector: { boolean: {} } },
+                { name: "tooltip", selector: { boolean: {} } },
+                ...(multi ? [{ name: "legend_toggle", selector: { boolean: {} } }] : []),
+              ]),
+              ...(hasScale
+                ? [
+                    { name: "fill_gradient", selector: select(h, ["value", "time"], "opt.fill_") },
+                    { name: "show_thresholds", selector: { boolean: {} } },
+                  ]
+                : []),
+              {
+                type: "expandable",
+                flatten: true,
+                title: this._l("editor.section.scale"),
+                expanded: !!c.peak_overflow || isSet(c.limits?.min) || isSet(c.limits?.max) || isSet(c.height),
+                schema: [
                   { name: "peak_overflow", selector: { boolean: {} } },
                   ...(c.peak_overflow
                     ? [
-                        { name: "peak_percentile", selector: { number: { mode: "slider", min: 80, max: 100, step: 1, unit_of_measurement: "%" } } },
-                        { name: "peak_margin", selector: { number: { mode: "box", min: 0, max: 200, step: 1, unit_of_measurement: "px" } } },
+                        { name: "peak_percentile", selector: pct(80, 100) },
+                        { name: "peak_margin", selector: px(0, 200) },
                       ]
                     : []),
-                ]),
-                { name: "end_labels", selector: select(h, ["none", "value", "icon", "icon_value"]) },
-                ...(hasScale
-                  ? [
-                      { name: "fill_gradient", selector: select(h, ["value", "time"], "opt.fill_") },
-                      { name: "show_thresholds", selector: { boolean: {} } },
-                    ]
-                  : []),
-                grid([
-                  { name: "tooltip", selector: { boolean: {} } },
-                  ...(multi ? [{ name: "legend_toggle", selector: { boolean: {} } }] : []),
-                ]),
-              ]
-            : []),
-        ],
-      },
-      ...(c.compact || compactOnTap
-        ? [
-            {
-              type: "expandable",
-              flatten: true,
-              expanded: true,
-              title: this._l("editor.section.compact"),
-              schema: [
-                grid([
-                  { name: "compact_icon", selector: { boolean: {} } },
-                  { name: "compact_names", selector: { boolean: {} } },
-                ]),
-                grid([
-                  { name: "compact_font_size", selector: { number: { mode: "box", min: 8, max: 72, step: 1, unit_of_measurement: "px" } } },
-                  { name: "compact_name_size", selector: { number: { mode: "box", min: 8, max: 72, step: 1, unit_of_measurement: "px" } } },
-                ]),
-                grid([
-                  ...(hasGraph ? [{ name: "compact_graph", selector: { boolean: {} } }] : []),
-                  ...(compactOnTap ? [{ name: "compact_animation", selector: { boolean: {} } }] : []),
-                ]),
-              ],
-            },
-          ]
-        : []),
-      ...(hasGraph
-        ? [
-            {
-              type: "expandable",
-              flatten: true,
-              expanded: !!c.day_night,
-              title: this._l("editor.section.daynight"),
-              schema: [
-                { name: "day_night", selector: { boolean: {} } },
-                ...(c.day_night
-                  ? [
-                      grid([
-                        { name: "stars", selector: { boolean: {} } },
-                        { name: "sun_times", selector: { boolean: {} } },
-                      ]),
-                      { name: "night_opacity", selector: { number: { mode: "slider", min: 5, max: 90, step: 1, unit_of_measurement: "%" } } },
-                      { name: "twilight_opacity", selector: { number: { mode: "slider", min: 0, max: 80, step: 1, unit_of_measurement: "%" } } },
-                      ...(c.day_color
-                        ? [{ name: "day_opacity", selector: { number: { mode: "slider", min: 0, max: 50, step: 1, unit_of_measurement: "%" } } }]
-                        : []),
-                      ...(c.stars !== false
-                        ? [
-                            { name: "stars_brightness", selector: { number: { mode: "slider", min: 10, max: 100, step: 1, unit_of_measurement: "%" } } },
-                            { name: "stars_twinkle", selector: { number: { mode: "slider", min: 0, max: 100, step: 1, unit_of_measurement: "%" } } },
-                            { name: "stars_density", selector: { number: { mode: "slider", min: 10, max: 300, step: 5, unit_of_measurement: "%" } } },
-                          ]
-                        : []),
-                    ]
-                  : []),
-              ],
-            },
-          ]
-        : []),
-      {
-        type: "expandable",
-        flatten: true,
-        title: this._l("editor.section.interactions"),
-        schema: [
-          { name: "compact_on_tap", selector: { boolean: {} } },
-          ...(compactOnTap || c.compact ? [{ name: "remember_compact", selector: { boolean: {} } }] : []),
-          ...(compactOnTap ? [] : [{ name: "tap_action", selector: { ui_action: {} } }]),
-          { name: "hold_action", selector: { ui_action: {} } },
-          { name: "double_tap_action", selector: { ui_action: {} } },
-        ],
-      },
-      {
-        type: "expandable",
-        flatten: true,
-        title: this._l("editor.section.advanced"),
-        schema: [
-          ...(hasGraph
-            ? [
-                grid([
-                  { name: "height", selector: { number: { mode: "box", min: 20, step: 1 } } },
-                  { name: "smoothing", selector: { boolean: {} } },
-                  { name: "limits_min", selector: num },
-                  { name: "limits_max", selector: num },
-                  { name: "statistics_threshold", selector: { number: { mode: "box", min: 0, step: "any" } } },
-                  ...(this._usesStatistics
-                    ? [{ name: "statistics_period", selector: select(h, ["auto", "5minute", "hour", "day"]) }]
-                    : []),
-                ]),
-              ]
-            : []),
-          { name: "theme", selector: { theme: {} } },
-        ],
-      },
-    ];
+                  grid([
+                    { name: "limits_min", selector: num },
+                    { name: "limits_max", selector: num },
+                  ]),
+                  { name: "height", selector: { number: { mode: "box", min: 20, step: 1, unit_of_measurement: "px" } } },
+                ],
+              },
+            ]
+          : []),
+      ],
+      daynight: [
+        { name: "day_night", selector: { boolean: {} } },
+        ...(c.day_night
+          ? [
+              grid([
+                { name: "stars", selector: { boolean: {} } },
+                { name: "sun_times", selector: { boolean: {} } },
+              ]),
+              { name: "night_opacity", selector: pct(5, 90) },
+              { name: "twilight_opacity", selector: pct(0, 80) },
+              ...(c.day_color ? [{ name: "day_opacity", selector: pct(0, 50) }] : []),
+              ...(c.stars !== false
+                ? [
+                    { name: "stars_brightness", selector: pct(10, 100) },
+                    { name: "stars_twinkle", selector: pct(0, 100) },
+                    { name: "stars_density", selector: pct(10, 300, 5) },
+                  ]
+                : []),
+            ]
+          : []),
+      ],
+      compact: [
+        { name: "compact", selector: { boolean: {} } },
+        { name: "compact_on_tap", selector: { boolean: {} } },
+        ...(c.compact || compactOnTap
+          ? [
+              ...(compactOnTap ? [{ name: "compact_animation", selector: { boolean: {} } }] : []),
+              { name: "remember_compact", selector: { boolean: {} } },
+              grid([
+                { name: "compact_icon", selector: { boolean: {} } },
+                { name: "compact_names", selector: { boolean: {} } },
+              ]),
+              ...(hasGraph ? [{ name: "compact_graph", selector: { boolean: {} } }] : []),
+              grid([
+                { name: "compact_font_size", selector: px(8, 72) },
+                { name: "compact_name_size", selector: px(8, 72) },
+              ]),
+            ]
+          : []),
+      ],
+      interactions: [
+        ...(compactOnTap ? [] : [{ name: "tap_action", selector: { ui_action: {} } }]),
+        { name: "hold_action", selector: { ui_action: {} } },
+        { name: "double_tap_action", selector: { ui_action: {} } },
+      ],
+      advanced: [
+        ...(hasGraph
+          ? [
+              { name: "statistics_threshold", selector: { number: { mode: "box", min: 0, step: "any", unit_of_measurement: "h" } } },
+              ...(this._usesStatistics ? [{ name: "statistics_period", selector: select(h, ["auto", "5minute", "hour", "day"]) }] : []),
+            ]
+          : []),
+        { name: "theme", selector: { theme: {} } },
+      ],
+    };
+  }
+
+  /** Helper text below a field (only where the label alone does not explain it). */
+  private _computeHelper = (s: { name: string }) => {
+    const key = `helper.${s.name}`;
+    const text = this._l(key);
+    return text === key ? undefined : text;
+  };
+
+  /** One section of card options: expansion panel with a form and optional custom content. */
+  private _section(
+    icon: string,
+    title: string,
+    schema: any[],
+    extra: TemplateResult | typeof nothing = nothing,
+    expanded = false,
+  ): TemplateResult {
+    return html`<ha-expansion-panel outlined .header=${title} .expanded=${expanded} class="section">
+      <ha-icon slot="leading-icon" .icon=${icon}></ha-icon>
+      <div class="section-body">
+        ${schema.length
+          ? html`<ha-form
+              .hass=${this.hass}
+              .data=${this._cardData()}
+              .schema=${schema}
+              .computeLabel=${this._computeLabel}
+              .computeHelper=${this._computeHelper}
+              @value-changed=${this._cardChanged}
+            ></ha-form>`
+          : nothing}
+        ${extra}
+      </div>
+    </ha-expansion-panel>`;
   }
 
   private _cardData(): Record<string, any> {
@@ -347,23 +354,73 @@ export class BestNumberCardEditor extends LitElement {
     const h = this.hass;
     const grid = (schema: any[]) => ({ type: "grid", name: "", schema });
     const hasScale = !!e.color_scale?.length;
-    const graphOn = this._config!.graph !== "none" && e.show_graph !== false;
+    const cardGraph = this._config!.graph !== "none";
+    const graphOn = cardGraph && e.show_graph !== false;
+    const tri = select(h, ["inherit", "on", "off"], "opt.tri_");
     return [
       { name: "entity", selector: { entity: {} } },
-      { name: "attribute", selector: { attribute: { entity_id: e.entity } } },
       grid([
         { name: "name", selector: { text: {} } },
         { name: "icon", selector: { icon: {} } },
-        { name: "font_size", selector: { number: { mode: "box", min: 8, max: 96, step: 1, unit_of_measurement: "px" } } },
-        ...(graphOn
-          ? [
-              { name: "show_extrema", selector: select(h, ["inherit", "on", "off"], "opt.tri_") },
-              { name: "band", selector: select(h, ["inherit", "on", "off"], "opt.tri_") },
-              { name: "peak_overflow", selector: select(h, ["inherit", "on", "off"], "opt.tri_") },
-            ]
-          : []),
       ]),
-      ...(graphOn && !e.attribute ? [{ name: "raw_history", selector: { boolean: {} } }] : []),
+      {
+        type: "expandable",
+        flatten: true,
+        title: this._l("editor.section.entity_display"),
+        expanded: e.show_value === false || isSet(e.font_size) || isSet(e.unit) || isSet(e.decimals) || !!e.attribute,
+        schema: [
+          grid([
+            { name: "show_value", selector: { boolean: {} } },
+            ...(cardGraph ? [{ name: "show_extrema", selector: tri }] : []),
+          ]),
+          grid([
+            { name: "font_size", selector: { number: { mode: "box", min: 8, max: 96, step: 1, unit_of_measurement: "px" } } },
+            { name: "decimals", selector: { number: { mode: "box", min: 0, max: 6, step: 1 } } },
+            { name: "unit", selector: { text: {} } },
+            { name: "unavailable_text", selector: { text: {} } },
+          ]),
+          { name: "attribute", selector: { attribute: { entity_id: e.entity } } },
+        ],
+      },
+      ...(cardGraph
+        ? [
+            {
+              type: "expandable",
+              flatten: true,
+              title: this._l("editor.section.entity_graph"),
+              expanded: e.show_graph === false || !!e.raw_history,
+              schema: [
+                { name: "show_graph", selector: { boolean: {} } },
+                ...(graphOn
+                  ? [
+                      ...(!e.attribute ? [{ name: "raw_history", selector: { boolean: {} } }] : []),
+                      grid([
+                        { name: "band", selector: tri },
+                        { name: "peak_overflow", selector: tri },
+                        { name: "line_width", selector: { number: { mode: "box", min: 0.5, max: 12, step: 0.5, unit_of_measurement: "px" } } },
+                        { name: "fill", selector: { boolean: {} } },
+                      ]),
+                      ...(hasScale && e.fill !== false
+                        ? [{ name: "fill_gradient", selector: select(h, ["value", "time"], "opt.fill_") }]
+                        : []),
+                      { name: "scale", selector: { text: {} } },
+                      grid([
+                        { name: "min", selector: num },
+                        { name: "max", selector: num },
+                      ]),
+                    ]
+                  : []),
+              ],
+            },
+          ]
+        : []),
+    ];
+  }
+
+  /** visibility and alert rules – below the colours in the entity panel */
+  private _entityRulesSchema(e: EntityConfig) {
+    const grid = (schema: any[]) => ({ type: "grid", name: "", schema });
+    return [
       {
         type: "expandable",
         flatten: true,
@@ -387,38 +444,6 @@ export class BestNumberCardEditor extends LitElement {
             { name: "alert_above", selector: num },
             { name: "alert_below", selector: num },
           ]),
-        ],
-      },
-      {
-        type: "expandable",
-        flatten: true,
-        title: this._l("editor.section.advanced"),
-        schema: [
-          grid([
-            { name: "unit", selector: { text: {} } },
-            { name: "decimals", selector: { number: { mode: "box", min: 0, max: 6, step: 1 } } },
-            { name: "unavailable_text", selector: { text: {} } },
-            ...(graphOn
-              ? [
-                  { name: "line_width", selector: { number: { mode: "box", min: 0.5, max: 12, step: 0.5 } } },
-                  { name: "scale", selector: { text: {} } },
-                  { name: "min", selector: num },
-                  { name: "max", selector: num },
-                ]
-              : []),
-          ]),
-          grid([
-            { name: "show_value", selector: { boolean: {} } },
-            { name: "show_graph", selector: { boolean: {} } },
-            ...(graphOn
-              ? [
-                  { name: "fill", selector: { boolean: {} } },
-                ]
-              : []),
-          ]),
-          ...(graphOn && hasScale && e.fill !== false
-            ? [{ name: "fill_gradient", selector: select(h, ["value", "time"], "opt.fill_") }]
-            : []),
         ],
       },
     ];
@@ -780,21 +805,8 @@ export class BestNumberCardEditor extends LitElement {
         </div>
         <div class="panel-body">
           ${warnings.map((w) => html`<div class="warning">⚠ ${w}</div>`)}
-          <ha-form
-            .hass=${this.hass}
-            .data=${{ show_value: true, show_graph: true, ...e, band: toTri(e.band), show_extrema: toTri(e.show_extrema), peak_overflow: toTri(e.peak_overflow) }}
-            .schema=${this._entitySchema(e)}
-            .computeLabel=${this._computeLabel}
-            @value-changed=${(ev: CustomEvent) => {
-              ev.stopPropagation();
-              const v = { ...ev.detail.value, band: fromTri(ev.detail.value.band), show_extrema: fromTri(ev.detail.value.show_extrema), peak_overflow: fromTri(ev.detail.value.peak_overflow) };
-              if (v.show_value === true && e.show_value === undefined) delete v.show_value;
-              if (v.show_graph === true && e.show_graph === undefined) delete v.show_graph;
-              v.color_scale = e.color_scale;
-              v.color_scale_mode = e.color_scale_mode;
-              this._updateEntity(i, v);
-            }}
-          ></ha-form>
+          ${this._entityForm(e, i, this._entitySchema(e))}
+          <div class="sub-title">${this._l("editor.section.colors")}</div>
           ${e.color_scale?.length
             ? nothing
             : html`<div class="field-row">
@@ -808,12 +820,32 @@ export class BestNumberCardEditor extends LitElement {
                 )}
               </div>`}
           ${this._renderStops(i, e)}
+          ${this._entityForm(e, i, this._entityRulesSchema(e))}
           <div class="panel-actions">
             <button class="text-button danger" @click=${() => this._updateEntity(i, null)}>${this._l("editor.remove")}</button>
           </div>
         </div>
       </ha-expansion-panel>
     </div>`;
+  }
+
+  private _entityForm(e: EntityConfig, i: number, schema: any[]): TemplateResult {
+    return html`<ha-form
+            .hass=${this.hass}
+            .data=${{ show_value: true, show_graph: true, ...e, band: toTri(e.band), show_extrema: toTri(e.show_extrema), peak_overflow: toTri(e.peak_overflow) }}
+            .schema=${schema}
+            .computeLabel=${this._computeLabel}
+            .computeHelper=${this._computeHelper}
+            @value-changed=${(ev: CustomEvent) => {
+              ev.stopPropagation();
+              const v = { ...ev.detail.value, band: fromTri(ev.detail.value.band), show_extrema: fromTri(ev.detail.value.show_extrema), peak_overflow: fromTri(ev.detail.value.peak_overflow) };
+              if (v.show_value === true && e.show_value === undefined) delete v.show_value;
+              if (v.show_graph === true && e.show_graph === undefined) delete v.show_graph;
+              v.color_scale = e.color_scale;
+              v.color_scale_mode = e.color_scale_mode;
+              this._updateEntity(i, v);
+            }}
+          ></ha-form>`;
   }
 
   private _renderSkyColors(): TemplateResult {
@@ -828,8 +860,8 @@ export class BestNumberCardEditor extends LitElement {
         placeholder,
       )}
     </div>`;
-    return html`<div class="section-title">${this._l("editor.section.sky")}</div>
-      ${field("night_color", "#03061a")} ${field("dawn_color", "#ff8a3d")} ${field("dusk_color", "#d9467a")}
+    return html`<div class="sub-title">${this._l("editor.section.sky")}</div>
+      ${field("night_color", this.hass?.themes?.darkMode ? "#03061a" : "#2b3d80")} ${field("dawn_color", "#ff8a3d")} ${field("dusk_color", "#d9467a")}
       ${field("day_color", "")}
       ${c.stars !== false ? field("stars_color", this.hass?.themes?.darkMode ? "#ffffff" : "#26367a") : nothing}`;
   }
@@ -838,8 +870,7 @@ export class BestNumberCardEditor extends LitElement {
     const c = this._config!;
     const used = c.entities.some((e) => isSet(e.alert_above) || isSet(e.alert_below));
     const set = (patch: Partial<CardConfig>) => this._emit(clean({ ...c, ...patch }) as CardConfig);
-    return html`<div class="section-title">${this._l("editor.section.alert")}</div>
-      <div class="help">${this._l("editor.alert_hint")}</div>
+    return html`<div class="help">${this._l("editor.alert_hint")}</div>
       ${used
         ? html`<ha-form
               .hass=${this.hass}
@@ -861,34 +892,17 @@ export class BestNumberCardEditor extends LitElement {
 
   protected render(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config) return nothing;
+    const c = this._config;
     const warnings = this._cardWarnings();
+    const sec = this._sections();
+    const hasGraph = c.graph !== "none";
+    const l = this._l;
     return html`
       ${warnings.map((w) => html`<div class="warning">⚠ ${w}</div>`)}
-      <ha-form
-        .hass=${this.hass}
-        .data=${this._cardData()}
-        .schema=${this._cardSchema()}
-        .computeLabel=${this._computeLabel}
-        @value-changed=${this._cardChanged}
-      ></ha-form>
-      <div class="field-row">
-        <span class="field-label">${this._l("field.text_color")}</span>
-        ${this._renderColorField(
-          "text-color",
-          this._config.text_color ?? this._config.compact_text_color,
-          (c) => {
-            const { compact_text_color: _old, ...rest } = this._config!;
-            this._emit(clean({ ...rest, text_color: c }) as CardConfig);
-          },
-          this._l("field.text_color"),
-          "var(--secondary-text-color)",
-        )}
-      </div>
-      ${this._config.day_night && this._config.graph !== "none" ? this._renderSkyColors() : nothing}
-      ${this._renderAlertSection()}
-      <div class="section-title">${this._l("editor.section.entities")}</div>
+      <div class="section-title">${l("editor.section.entities")}</div>
+      <div class="help">${l("editor.entities_help")}</div>
       <div class="entities ${this._drag ? "is-dragging" : ""}">
-        ${this._config.entities.map((e, i) => this._renderEntity(e, i))}
+        ${c.entities.map((e, i) => this._renderEntity(e, i))}
       </div>
       <div class="add">
         <svg viewBox="0 0 24 24"><path d=${mdiPlus}></path></svg>
@@ -896,12 +910,39 @@ export class BestNumberCardEditor extends LitElement {
           .hass=${this.hass}
           .data=${{}}
           .schema=${[{ name: "entity", selector: { entity: {} } }]}
-          .computeLabel=${() => this._l("editor.add_entity")}
+          .computeLabel=${() => l("editor.add_entity")}
           @value-changed=${this._addEntity}
         ></ha-form>
       </div>
-      ${this._config.graph !== "none" ? this._renderEvents() : nothing}
+      <div class="sections">
+        ${this._section("mdi:card-text-outline", l("editor.section.general"), sec.general, this._renderTextColor(), true)}
+        ${this._section("mdi:chart-line", l("editor.section.graph"), sec.graph)}
+        ${hasGraph ? this._section("mdi:map-marker-outline", l("editor.section.events"), [], this._renderEvents()) : nothing}
+        ${hasGraph
+          ? this._section("mdi:weather-night", l("editor.section.daynight"), sec.daynight, c.day_night ? this._renderSkyColors() : nothing)
+          : nothing}
+        ${this._section("mdi:arrow-collapse-vertical", l("editor.section.compact"), sec.compact)}
+        ${this._section("mdi:alert-circle-outline", l("editor.section.alert"), [], this._renderAlertSection())}
+        ${this._section("mdi:gesture-tap", l("editor.section.interactions"), sec.interactions)}
+        ${this._section("mdi:cog-outline", l("editor.section.advanced"), sec.advanced)}
+      </div>
     `;
+  }
+
+  private _renderTextColor(): TemplateResult {
+    return html`<div class="field-row">
+      <span class="field-label">${this._l("field.text_color")}</span>
+      ${this._renderColorField(
+        "text-color",
+        this._config!.text_color ?? this._config!.compact_text_color,
+        (col) => {
+          const { compact_text_color: _old, ...rest } = this._config!;
+          this._emit(clean({ ...rest, text_color: col }) as CardConfig);
+        },
+        this._l("field.text_color"),
+        "var(--secondary-text-color)",
+      )}
+    </div>`;
   }
 
   // ------------------------------------------------------------- event pins
@@ -920,8 +961,7 @@ export class BestNumberCardEditor extends LitElement {
       else next[i] = clean({ ...next[i], ...patch }) as EventConfig;
       this._setEvents(next);
     };
-    return html`<div class="section-title">${this._l("editor.section.events")}</div>
-      <div class="help">${this._l("editor.events_help")}</div>
+    return html`<div class="help">${this._l("editor.events_help")}</div>
       ${events.length
         ? html`<ha-form
             .hass=${this.hass}
@@ -961,6 +1001,7 @@ export class BestNumberCardEditor extends LitElement {
                   : sch.name === "event_line"
                     ? this._l("field.event_line")
                     : this._computeLabel(sch)}
+              .computeHelper=${(sch: { name: string }) => this._computeHelper(sch)}
               @value-changed=${(e: CustomEvent) => {
                 e.stopPropagation();
                 const v = e.detail.value;
@@ -976,8 +1017,8 @@ export class BestNumberCardEditor extends LitElement {
               }}
             ></ha-form>
             <div class="field-row">
-              <span class="field-label">${this._l("field.color")}</span>
-              ${this._renderColorField(`ev${i}`, ev.color, (c) => update(i, { color: c }), this._l("field.color"))}
+              <span class="field-label">${this._l("field.event_color")}</span>
+              ${this._renderColorField(`ev${i}`, ev.color, (c) => update(i, { color: c }), this._l("field.event_color"))}
               <ha-icon-button .label=${this._l("editor.remove")} .path=${mdiDelete} @click=${() => update(i, null)}></ha-icon-button>
             </div>
           </div>`,
@@ -1004,6 +1045,24 @@ export class BestNumberCardEditor extends LitElement {
   static styles = css`
     :host {
       display: block;
+    }
+    .sections {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 24px;
+    }
+    .section ha-icon[slot="leading-icon"] {
+      color: var(--secondary-text-color);
+    }
+    .section-body {
+      padding: 0 0 8px;
+    }
+    .sub-title {
+      margin: 16px 0 4px;
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--secondary-text-color);
     }
     .section-title {
       margin: 24px 0 8px;
