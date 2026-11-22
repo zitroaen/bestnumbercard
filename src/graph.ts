@@ -216,3 +216,37 @@ export function timeTicks(hours: number, plotW: number): Array<{ x: number; hour
   ticks.push({ x: plotW, hours: 0 });
   return ticks;
 }
+
+/** Value below which the share `q` (0…1) of the finite values lies (linear interpolation). */
+export function quantile(values: ArrayLike<number>, q: number): number {
+  const v: number[] = [];
+  for (let i = 0; i < values.length; i++) if (Number.isFinite(values[i])) v.push(values[i]);
+  if (!v.length) return NaN;
+  v.sort((a, b) => a - b);
+  const p = Math.min(1, Math.max(0, q)) * (v.length - 1);
+  const i = Math.floor(p);
+  return i + 1 < v.length ? v[i] + (v[i + 1] - v[i]) * (p - i) : v[i];
+}
+
+export interface PeakZone {
+  /** highest value that has to fit */
+  max: number;
+  /** pixels available above `top` */
+  room: number;
+}
+
+/**
+ * Value → y. lo…hi fills bottom…top. With a peak zone, values above hi rise into the `room`
+ * above top: on the same scale while the highest value fits, otherwise compressed into the room.
+ */
+export function scaleY(lo: number, hi: number, top: number, bottom: number, peak?: PeakZone): (v: number) => number {
+  const k = (bottom - top) / (hi - lo);
+  if (!peak || !(peak.max > hi) || !(peak.room > 0)) {
+    return (v) => bottom - (Math.min(Math.max(v, lo), hi) - lo) * k;
+  }
+  const kPeak = Math.min(k, peak.room / (peak.max - hi));
+  return (v) => {
+    const c = Math.min(Math.max(v, lo), peak.max);
+    return c <= hi ? bottom - (c - lo) * k : top - (c - hi) * kPeak;
+  };
+}

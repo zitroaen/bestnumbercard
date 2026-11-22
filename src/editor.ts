@@ -115,6 +115,8 @@ export class BestNumberCardEditor extends LitElement {
       y_axis: "hover",
       x_axis: "hover",
       band: false,
+      peak_overflow: false,
+      peak_percentile: 95,
       show_thresholds: false,
       show_extrema: false,
       legend_toggle: true,
@@ -180,6 +182,12 @@ export class BestNumberCardEditor extends LitElement {
                   { name: "y_axis", selector: select(h, ["hover", "always", "none"]) },
                   { name: "x_axis", selector: select(h, ["hover", "always", "none"]) },
                   { name: "band", selector: { boolean: {} } },
+                ]),
+                grid([
+                  { name: "peak_overflow", selector: { boolean: {} } },
+                  ...(c.peak_overflow
+                    ? [{ name: "peak_percentile", selector: { number: { mode: "slider", min: 80, max: 100, step: 1, unit_of_measurement: "%" } } }]
+                    : []),
                 ]),
                 { name: "end_labels", selector: select(h, ["none", "value", "icon", "icon_value"]) },
                 ...(hasScale
@@ -347,6 +355,7 @@ export class BestNumberCardEditor extends LitElement {
           ? [
               { name: "show_extrema", selector: select(h, ["inherit", "on", "off"], "opt.tri_") },
               { name: "band", selector: select(h, ["inherit", "on", "off"], "opt.tri_") },
+              { name: "peak_overflow", selector: select(h, ["inherit", "on", "off"], "opt.tri_") },
             ]
           : []),
       ]),
@@ -769,12 +778,12 @@ export class BestNumberCardEditor extends LitElement {
           ${warnings.map((w) => html`<div class="warning">⚠ ${w}</div>`)}
           <ha-form
             .hass=${this.hass}
-            .data=${{ show_value: true, show_graph: true, ...e, band: toTri(e.band), show_extrema: toTri(e.show_extrema) }}
+            .data=${{ show_value: true, show_graph: true, ...e, band: toTri(e.band), show_extrema: toTri(e.show_extrema), peak_overflow: toTri(e.peak_overflow) }}
             .schema=${this._entitySchema(e)}
             .computeLabel=${this._computeLabel}
             @value-changed=${(ev: CustomEvent) => {
               ev.stopPropagation();
-              const v = { ...ev.detail.value, band: fromTri(ev.detail.value.band), show_extrema: fromTri(ev.detail.value.show_extrema) };
+              const v = { ...ev.detail.value, band: fromTri(ev.detail.value.band), show_extrema: fromTri(ev.detail.value.show_extrema), peak_overflow: fromTri(ev.detail.value.peak_overflow) };
               if (v.show_value === true && e.show_value === undefined) delete v.show_value;
               if (v.show_graph === true && e.show_graph === undefined) delete v.show_graph;
               v.color_scale = e.color_scale;

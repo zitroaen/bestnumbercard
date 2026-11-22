@@ -3,7 +3,7 @@ import pkg from "../package.json";
 import { runAction } from "./actions";
 import { colorAt, gradientStops, timeGradientStops, parseColor, rgbaToCss, sortStops, type GradientStop, type RGBA } from "./color-scale";
 import { DataSource, seriesId } from "./data";
-import { aggregate, bandPath, dataRange, timeTicks, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
+import { aggregate, bandPath, dataRange, quantile, scaleY, timeTicks, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
 import { formatNumber, formatTime, localize } from "./localize";
 import { defaultColor, jumpValues } from "./presets";
 import { seededRandom, skyWeights, solarAltitude, sunEvents } from "./sun";
@@ -26,6 +26,7 @@ const DEFAULTS = {
   legend_icon: "dot",
   y_axis: "hover",
   x_axis: "hover",
+  peak_percentile: 95,
 };
 
 interface SeriesModel {
@@ -99,6 +100,8 @@ interface GraphModel {
   /** x positions of the time labels (relative hours before now) */
   ticks: Array<{ x: number; hours: number }>;
   events: EventMark[];
+  /** px above the graph that peaks reach into (0 = none) */
+  room: number;
 }
 
 let uid = 0;
@@ -135,6 +138,7 @@ export class BestNumberCard extends LitElement {
     _compact: { state: true },
     _width: { state: true },
     _graphH: { state: true },
+    _room: { state: true },
     _hoverX: { state: true },
     _tick: { state: true },
     _off: { state: true },
@@ -146,6 +150,8 @@ export class BestNumberCard extends LitElement {
   private _width = 0;
   /** measured height of the graph area (fills the card in grid layouts) */
   private _graphH = 0;
+  /** free space between the card's top edge and the graph (for peak_overflow) */
+  private _room = 0;
   private _hoverX: number | null = null;
   private _tick = 0;
   /** entities switched off via the legend (session only) */
@@ -269,8 +275,9 @@ export class BestNumberCard extends LitElement {
     }
   }
 
-  protected updated(): void {
+  protected updated(changed: Map<string, unknown>): void {
     this._updateAlert();
+    if (changed.has("_config") || changed.has("_compact")) this._measureRoom();
     const el = this.renderRoot.querySelector(".graph");
     if (el !== this._graphEl) {
       this._ro?.disconnect();
@@ -281,10 +288,24 @@ export class BestNumberCard extends LitElement {
           const h = Math.round(entries[0].contentRect.height);
           if (w && w !== this._width) this._width = w;
           if (h && h !== this._graphH && !this._animating) this._graphH = h;
+          this._measureRoom();
         });
         this._ro.observe(el);
       }
     }
+  }
+
+  /** Only needed with peak_overflow: the distance from the card's top edge to the graph. */
+  private _measureRoom(): void {
+    const el = this._graphEl as HTMLElement | undefined;
+    const card = this.renderRoot.querySelector("ha-card");
+    const on = !!this._config?.peak_overflow || !!this._config?.entities.some((e) => e.peak_overflow);
+    if (!on || !el || !card || el.classList.contains("bg")) {
+      if (this._room) this._room = 0;
+      return;
+    }
+    const room = Math.max(0, Math.round(el.getBoundingClientRect().top - card.getBoundingClientRect().top));
+    if (Math.abs(room - this._room) > 1) this._room = room;
   }
 
   // ---------------------------------------------------------------- data
@@ -566,6 +587,7 @@ export class BestNumberCard extends LitElement {
       const g = this.renderRoot.querySelector(".graph");
       const h = g ? Math.round(g.getBoundingClientRect().height) : 0;
       if (h && h !== this._graphH) this._graphH = h;
+      this._measureRoom();
     };
     anim.onfinish = done;
     anim.oncancel = done;
@@ -617,7 +639,7 @@ export class BestNumberCard extends LitElement {
     const plotW = Math.max(20, this._width - this._labelMargin(ents.filter((e) => !this._off.has(this._sid(e)))));
     const detail = (Number(cfg.detail) === 2 ? 2 : 1) as 1 | 2;
     const key = JSON.stringify([
-      this._tick, this._cfgVersion, this._dsKey, this._width, height, plotW, detail, [...this._off], this._ds.loaded, this._compact, this._ev?.version ?? -1,
+      this._tick, this._cfgVersion, this._dsKey, this._width, height, this._room, plotW, detail, [...this._off], this._ds.loaded, this._compact, this._ev?.version ?? -1,
     ]);
     if (this._model?.key === key) return this._model;
 
@@ -635,10 +657,11 @@ export class BestNumberCard extends LitElement {
       const data = this._ds!.series(this._sid(e)) ?? { t: [], v: [] };
       return { e, b: aggregate(data, start, end, nFor(e)) };
     });
-    const groups = new Map<string, { lo: number; hi: number; first?: EntityConfig }>();
+    const groups = new Map<string, { lo: number; hi: number; first?: EntityConfig; peaks: number[]; peak?: number }>();
+    const room = this._compact ? 0 : this._room;
     for (const { e, b } of agg) {
       const g = e.scale || "default";
-      const cur = groups.get(g) ?? { lo: Infinity, hi: -Infinity };
+      const cur = groups.get(g) ?? { lo: Infinity, hi: -Infinity, peaks: [] as number[] };
       const off = this._off.has(this._sid(e));
       if (!off || !groups.has(g)) {
         // with a band the scale must also fit the real minimum / maximum
@@ -647,6 +670,10 @@ export class BestNumberCard extends LitElement {
           cur.lo = Math.min(cur.lo, lo);
           cur.hi = Math.max(cur.hi, hi);
           cur.first ??= e;
+          if (room > 0 && (e.peak_overflow ?? cfg.peak_overflow)) {
+            // time-weighted means: a short spike counts with its real duration
+            for (let i = 0; i < b.mean.length; i++) cur.peaks.push(b.mean[i]);
+          }
         }
       }
       groups.set(g, cur);
@@ -660,6 +687,17 @@ export class BestNumberCard extends LitElement {
       const lmax = maxs.length ? Math.max(...maxs) : cfg.limits?.max;
       if (isSet(lmin)) r.lo = Number(lmin);
       if (isSet(lmax)) r.hi = Number(lmax);
+      else if (r.peaks.length && Number.isFinite(r.lo)) {
+        // peaks may rise into the header: the scale follows the bulk of the values, not single spikes
+        const share = Math.min(100, Math.max(50, Number(cfg.peak_percentile) || DEFAULTS.peak_percentile)) / 100;
+        // the bulk of the values fills the lower 60 %, so the spikes still clearly stand out above it
+        const hi = r.lo + (quantile(r.peaks, share) - r.lo) / 0.6;
+        // only worth it if the spikes stick out clearly
+        if (hi > r.lo && r.hi - hi > 0.1 * (r.hi - r.lo)) {
+          r.peak = r.hi;
+          r.hi = hi;
+        }
+      }
       if (!Number.isFinite(r.lo) || !Number.isFinite(r.hi)) {
         r.lo = 0;
         r.hi = 1;
@@ -690,6 +728,7 @@ export class BestNumberCard extends LitElement {
     }
 
     let hasData = false;
+    let peaked = false;
     const series: SeriesModel[] = agg.map(({ e, b }, index) => {
       const { lo, hi } = groups.get(e.scale || "default")!;
       const lineWidth = Number(e.line_width) > 0 ? Number(e.line_width) : multi ? 3 : 4;
@@ -697,10 +736,10 @@ export class BestNumberCard extends LitElement {
       const top = lineWidth / 2 + inset;
       // with event pins the lines keep clear of the event strip
       const bottom = height - lineWidth / 2 - inset - (events.length ? EVENT_STRIP : 0);
-      const y = (v: number) => {
-        const c = Math.min(Math.max(v, lo), hi);
-        return bottom - ((c - lo) / (hi - lo)) * (bottom - top);
-      };
+      const peak = groups.get(e.scale || "default")!.peak;
+      // the lines may rise to just below the card's top edge
+      const y = scaleY(lo, hi, top, bottom, peak !== undefined ? { max: peak, room: room + top - 4 } : undefined);
+      if (peak !== undefined) peaked = true;
       let sum = 0;
       let cnt = 0;
       for (const v of b.mean) if (Number.isFinite(v)) (sum += v), cnt++;
@@ -756,7 +795,7 @@ export class BestNumberCard extends LitElement {
     }
 
     const ticks = this._compact ? [] : timeTicks(this._hours, plotW);
-    this._model = { key, width: this._width, plotW, height, start, end, series, axes, thresholds, hasData, ticks, events };
+    this._model = { key, width: this._width, plotW, height, start, end, series, axes, thresholds, hasData, ticks, events, room: peaked ? room : 0 };
     return this._model;
   }
 
@@ -901,7 +940,7 @@ export class BestNumberCard extends LitElement {
 
     return html`
       <ha-card
-        class=${this._compact ? "compact" : ""}
+        class=${this._compact ? "compact" : showGraph && model?.room ? "peaks" : ""}
         style=${textColor ? `--bnc-cnc:${textColor}` : ""}
         @pointerdown=${this._onPointerDown}
         @pointerup=${this._onPointerUp}
@@ -1324,6 +1363,15 @@ export class BestNumberCard extends LitElement {
               </linearGradient>`
             : nothing,
         )}
+        ${m.room
+          ? svg`<linearGradient id=${`${this._uid}-pkg`} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1=${-m.room} y2="0">
+                <stop offset="0" stop-color="#fff" stop-opacity="0.35"></stop>
+                <stop offset="1" stop-color="#fff" stop-opacity="1"></stop>
+              </linearGradient>
+              <mask id=${`${this._uid}-pk`} maskUnits="userSpaceOnUse" x="0" y=${-m.room} width=${m.width} height=${m.height + m.room}>
+                <rect x="0" y=${-m.room} width=${m.width} height=${m.height + m.room} fill=${`url(#${this._uid}-pkg)`}></rect>
+              </mask>`
+          : nothing}
       </defs>
       ${m.thresholds.map(
         (t) => svg`<line class="threshold" x1="0" x2=${m.plotW} y1=${t.y} y2=${t.y} style="stroke:${t.color}"></line>`,
@@ -1332,6 +1380,7 @@ export class BestNumberCard extends LitElement {
         (t) => (t.hours === 0 ? nothing : svg`<line class="tick" x1=${t.x} x2=${t.x} y1="0" y2=${m.height}></line>`),
       )}
       ${this._renderEventShapes(m)}
+      <g mask=${m.room ? `url(#${this._uid}-pk)` : nothing}>
       ${shown.map((s) => {
         const paint = s.gradId ? `url(#${s.gradId})` : s.color;
         const fillPaint = s.fillGradId ? `url(#${s.fillGradId})` : paint;
@@ -1346,6 +1395,7 @@ export class BestNumberCard extends LitElement {
           )}
         </g>`;
       })}
+      </g>
       ${!m.hasData && loading
         ? shown.map(
             (s) =>
@@ -1508,6 +1558,18 @@ export class BestNumberCard extends LitElement {
       display: flex;
       padding: 8px 16px 0;
       justify-content: space-between;
+    }
+    /* peak_overflow: the peaks rise behind the header – keep the text on top and readable */
+    .peaks .header {
+      position: relative;
+      z-index: 1;
+      pointer-events: none;
+      text-shadow:
+        0 0 4px var(--ha-card-background, var(--card-background-color, #fff)),
+        0 0 8px var(--ha-card-background, var(--card-background-color, #fff));
+    }
+    .peaks .header > * {
+      pointer-events: auto;
     }
     .header.tight {
       padding-top: 6px;
