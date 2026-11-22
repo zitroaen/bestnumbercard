@@ -1365,7 +1365,7 @@ export class BestNumberCard extends LitElement {
         )}
         ${m.room
           ? svg`<linearGradient id=${`${this._uid}-pkg`} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1=${-m.room} y2="0">
-                <stop offset="0" stop-color="#fff" stop-opacity="0.35"></stop>
+                <stop offset="0" stop-color="#fff" stop-opacity="0.6"></stop>
                 <stop offset="1" stop-color="#fff" stop-opacity="1"></stop>
               </linearGradient>
               <mask id=${`${this._uid}-pk`} maskUnits="userSpaceOnUse" x="0" y=${-m.room} width=${m.width} height=${m.height + m.room}>

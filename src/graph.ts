@@ -237,14 +237,21 @@ export interface PeakZone {
 
 /**
  * Value → y. lo…hi fills bottom…top. With a peak zone, values above hi rise into the `room`
- * above top: on the same scale while the highest value fits, otherwise compressed into the room.
+ * above top. If the highest value fits on the same scale, the whole scale is stretched so it reaches the
+ * top of the room; otherwise the part above hi is compressed into the room.
  */
 export function scaleY(lo: number, hi: number, top: number, bottom: number, peak?: PeakZone): (v: number) => number {
   const k = (bottom - top) / (hi - lo);
   if (!peak || !(peak.max > hi) || !(peak.room > 0)) {
     return (v) => bottom - (Math.min(Math.max(v, lo), hi) - lo) * k;
   }
-  const kPeak = Math.min(k, peak.room / (peak.max - hi));
+  const roof = top - peak.room;
+  if (k * (peak.max - hi) <= peak.room) {
+    // the highest peak fits: stretch the whole scale so it reaches the top of the room
+    const kAll = (bottom - roof) / (peak.max - lo);
+    return (v) => bottom - (Math.min(Math.max(v, lo), peak.max) - lo) * kAll;
+  }
+  const kPeak = peak.room / (peak.max - hi);
   return (v) => {
     const c = Math.min(Math.max(v, lo), peak.max);
     return c <= hi ? bottom - (c - lo) * k : top - (c - hi) * kPeak;
