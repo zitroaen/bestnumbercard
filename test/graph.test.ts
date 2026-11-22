@@ -75,10 +75,10 @@ test("scaleY: peaks rise into the room above, compressed when they do not fit", 
   const plain = scaleY(0, 100, 0, 100);
   assert.equal(plain(50), 50);
   assert.equal(plain(500), 0); // clipped
-  // same scale while the peak fits into 40 px room
+  // the peak fits into the 40 px room: one linear scale up to the top of the room
   const fits = scaleY(0, 100, 0, 100, { max: 130, room: 40 });
-  assert.equal(fits(130), -30);
-  assert.equal(fits(50), 50);
+  assert.equal(fits(130), -40);
+  assert.equal(fits(65), 30);
   // a much higher peak is squeezed into the room
   const squeezed = scaleY(0, 100, 0, 100, { max: 1100, room: 40 });
   assert.equal(squeezed(1100), -40);
