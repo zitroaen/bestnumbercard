@@ -178,6 +178,7 @@ entities:
 | `twilight_opacity` | 30 % (dark), 20 % (light) | Strength of the glow, `0` = off |
 | `day_color` / `day_opacity` | – / 8 % (dark), 6 % (light) | Optional tint for the day |
 | `stars_brightness` / `stars_twinkle` / `stars_density` | 80 / 50 / 100 % | Brightness, share of twinkling stars, number of stars (up to 300 %) |
+| `stars_color` | auto | Star colour. Auto is white in a dark theme and dark blue in a light theme, where white stars would disappear on the bright night. |
 
 **Events**: see [Event pins](#event-pins)
 

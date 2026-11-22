@@ -179,6 +179,8 @@ export interface CardConfig {
   stars_twinkle?: number;
   /** Star density in % (default 100) */
   stars_density?: number;
+  /** Star colour (default: white in a dark theme, dark blue in a light theme) */
+  stars_color?: string;
   /** Colour of the card name and the entity names (both modes). */
   text_color?: string;
   /** @deprecated older name of `text_color` */

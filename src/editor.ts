@@ -805,7 +805,7 @@ export class BestNumberCardEditor extends LitElement {
 
   private _renderSkyColors(): TemplateResult {
     const c = this._config!;
-    const field = (key: "night_color" | "dawn_color" | "dusk_color" | "day_color", placeholder: string) => html`<div class="field-row">
+    const field = (key: "night_color" | "dawn_color" | "dusk_color" | "day_color" | "stars_color", placeholder: string) => html`<div class="field-row">
       <span class="field-label">${this._l(`field.${key}`)}</span>
       ${this._renderColorField(
         key,
@@ -817,7 +817,8 @@ export class BestNumberCardEditor extends LitElement {
     </div>`;
     return html`<div class="section-title">${this._l("editor.section.sky")}</div>
       ${field("night_color", "#03061a")} ${field("dawn_color", "#ff8a3d")} ${field("dusk_color", "#d9467a")}
-      ${field("day_color", "")}`;
+      ${field("day_color", "")}
+      ${c.stars !== false ? field("stars_color", this.hass?.themes?.darkMode ? "#ffffff" : "#26367a") : nothing}`;
   }
 
   private _renderAlertSection(): TemplateResult {

@@ -1119,7 +1119,7 @@ export class BestNumberCard extends LitElement {
     const stars = cfg.stars !== false;
     const key = JSON.stringify([
       m.key, dark, lat, lon, stars, cfg.night_color, cfg.night_opacity, cfg.dawn_color, cfg.dusk_color, cfg.day_color,
-      cfg.twilight_opacity, cfg.day_opacity, cfg.stars_brightness, cfg.stars_twinkle, cfg.stars_density,
+      cfg.twilight_opacity, cfg.day_opacity, cfg.stars_brightness, cfg.stars_twinkle, cfg.stars_density, cfg.stars_color,
     ]);
     if (this._dnCache?.key === key) return this._dnCache.tpl;
 
@@ -1172,7 +1172,7 @@ export class BestNumberCard extends LitElement {
       const rnd = seededRandom(parseInt(hash(this._uid + m.width), 36));
       const count = Math.round(((m.width * 400) / 1300) * density);
       // light theme: darker, slightly bigger stars, otherwise they disappear on the bright card
-      const fill = dark ? "#ffffff" : "#26367a";
+      const fill = cfg.stars_color || (dark ? "#ffffff" : "#26367a");
       const dots = [];
       for (let i = 0; i < count; i++) {
         const r = (dark ? 0.5 : 0.65) + rnd() * (dark ? 1.0 : 1.0);
