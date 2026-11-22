@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing, type TemplateResult } from "lit";
 import { gradientStops, parseColor, rgbaToCss, colorAt, sortStops } from "./color-scale";
 import { localize, formatNumber } from "./localize";
 import { PRESETS, defaultColor, rowsToStops, stopsToRows, type StopRow } from "./presets";
-import type { CardConfig, ColorScaleMode, ColorStop, EntityConfig, HomeAssistant } from "./types";
+import type { CardConfig, ColorScaleMode, ColorStop, EntityConfig, EventConfig, HomeAssistant } from "./types";
 
 const mdiDelete = "M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z";
 const mdiDrag =
@@ -122,6 +122,9 @@ export class BestNumberCardEditor extends LitElement {
       compact_names: false,
       compact_graph: false,
       compact_animation: true,
+      day_night: false,
+      stars: true,
+      sun_times: true,
       value_display: this._config!.entities.length === 1 ? "primary" : "all",
     };
   }
@@ -213,6 +216,28 @@ export class BestNumberCardEditor extends LitElement {
                   ...(hasGraph ? [{ name: "compact_graph", selector: { boolean: {} } }] : []),
                   ...(compactOnTap ? [{ name: "compact_animation", selector: { boolean: {} } }] : []),
                 ]),
+              ],
+            },
+          ]
+        : []),
+      ...(hasGraph
+        ? [
+            {
+              type: "expandable",
+              flatten: true,
+              expanded: !!c.day_night,
+              title: this._l("editor.section.daynight"),
+              schema: [
+                { name: "day_night", selector: { boolean: {} } },
+                ...(c.day_night
+                  ? [
+                      grid([
+                        { name: "stars", selector: { boolean: {} } },
+                        { name: "sun_times", selector: { boolean: {} } },
+                        { name: "night_opacity", selector: { number: { mode: "slider", min: 5, max: 90, step: 1, unit_of_measurement: "%" } } },
+                      ]),
+                    ]
+                  : []),
               ],
             },
           ]
@@ -832,7 +857,85 @@ export class BestNumberCardEditor extends LitElement {
           @value-changed=${this._addEntity}
         ></ha-form>
       </div>
+      ${this._config.graph !== "none" ? this._renderEvents() : nothing}
     `;
+  }
+
+  // ------------------------------------------------------------- event pins
+
+  private _setEvents(events: EventConfig[]): void {
+    const c: CardConfig = { ...this._config!, events };
+    if (!events.length) delete c.events;
+    this._emit(c);
+  }
+
+  private _renderEvents(): TemplateResult {
+    const events = this._config!.events ?? [];
+    const update = (i: number, patch: Partial<EventConfig> | null) => {
+      const next = [...events];
+      if (patch === null) next.splice(i, 1);
+      else next[i] = clean({ ...next[i], ...patch }) as EventConfig;
+      this._setEvents(next);
+    };
+    return html`<div class="section-title">${this._l("editor.section.events")}</div>
+      <div class="help">${this._l("editor.events_help")}</div>
+      <div class="events">
+        ${events.map(
+          (ev, i) => html`<div class="event-row">
+            <ha-form
+              .hass=${this.hass}
+              .data=${{ ...ev, state: Array.isArray(ev.state) ? ev.state.join(", ") : ev.state }}
+              .schema=${[
+                { name: "entity", selector: { entity: {} } },
+                {
+                  type: "grid",
+                  name: "",
+                  schema: [
+                    { name: "event_state", selector: { text: {} } },
+                    { name: "name", selector: { text: {} } },
+                    { name: "icon", selector: { icon: {} } },
+                  ],
+                },
+              ]}
+              .computeLabel=${(sch: { name: string }) =>
+                sch.name === "event_state" ? this._l("field.event_state") : this._computeLabel(sch)}
+              @value-changed=${(e: CustomEvent) => {
+                e.stopPropagation();
+                const v = e.detail.value;
+                const raw = v.event_state ?? v.state;
+                const states = typeof raw === "string" ? raw.split(",").map((x: string) => x.trim()).filter(Boolean) : raw;
+                update(i, {
+                  entity: v.entity,
+                  name: v.name,
+                  icon: v.icon,
+                  state: !states || !states.length ? undefined : states.length === 1 ? states[0] : states,
+                });
+              }}
+            ></ha-form>
+            <div class="field-row">
+              <span class="field-label">${this._l("field.color")}</span>
+              ${this._renderColorField(`ev${i}`, ev.color, (c) => update(i, { color: c }), this._l("field.color"))}
+              <ha-icon-button .label=${this._l("editor.remove")} .path=${mdiDelete} @click=${() => update(i, null)}></ha-icon-button>
+            </div>
+          </div>`,
+        )}
+      </div>
+      <div class="add">
+        <svg viewBox="0 0 24 24"><path d=${mdiPlus}></path></svg>
+        <ha-form
+          .hass=${this.hass}
+          .data=${{}}
+          .schema=${[{ name: "entity", selector: { entity: {} } }]}
+          .computeLabel=${() => this._l("editor.add_event")}
+          @value-changed=${(e: CustomEvent) => {
+            e.stopPropagation();
+            const entity = e.detail.value?.entity;
+            if (!entity) return;
+            this._setEvents([...events, { entity }]);
+            (e.target as any).data = {};
+          }}
+        ></ha-form>
+      </div>`;
   }
 
   static styles = css`
@@ -890,6 +993,16 @@ export class BestNumberCardEditor extends LitElement {
       width: 22px;
       height: 22px;
       fill: currentColor;
+    }
+    .events {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .event-row {
+      border: 1px solid var(--divider-color, #ccc);
+      border-radius: 12px;
+      padding: 8px 12px;
     }
     .add {
       display: flex;

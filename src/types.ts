@@ -23,7 +23,7 @@ export interface HomeAssistant {
     time_format?: string;
   };
   themes?: { themes: Record<string, Record<string, string>>; darkMode?: boolean };
-  config?: { unit_system?: { temperature?: string } };
+  config?: { unit_system?: { temperature?: string }; latitude?: number; longitude?: number };
   connection: {
     subscribeMessage<T>(
       callback: (msg: T) => void,
@@ -107,6 +107,16 @@ export interface EntityConfig {
   alert_below?: number;
 }
 
+/** A pin on the time axis while `entity` is in one of the given states. */
+export interface EventConfig {
+  entity: string;
+  /** state(s) to mark, default "on" */
+  state?: string | string[];
+  name?: string;
+  icon?: string;
+  color?: string;
+}
+
 export interface CardConfig {
   type: string;
   entities: EntityConfig[];
@@ -137,6 +147,18 @@ export interface CardConfig {
   compact_name_size?: number;
   /** Text shown instead of "unavailable" / "unknown", e.g. "–" (default: HA's translated state). */
   unavailable_text?: string;
+  /** Event pins on the time axis (binary sensors, switches, any entity with discrete states). */
+  events?: EventConfig[];
+  /** Day/night shading behind the card (computed from the location in HA). */
+  day_night?: boolean;
+  /** Stars in the night areas (default true). */
+  stars?: boolean;
+  /** Sunrise / sunset markers (default true). */
+  sun_times?: boolean;
+  /** Colour of the night (default: dark blue). */
+  night_color?: string;
+  /** Strength of the night shading in % (default: 55 dark / 13 light theme). */
+  night_opacity?: number;
   /** Colour of the card name and the entity names (both modes). */
   text_color?: string;
   /** @deprecated older name of `text_color` */

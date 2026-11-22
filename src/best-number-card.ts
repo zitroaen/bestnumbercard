@@ -6,7 +6,9 @@ import { DataSource, seriesId } from "./data";
 import { aggregate, bandPath, dataRange, timeTicks, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
 import { formatNumber, formatTime, localize } from "./localize";
 import { defaultColor, jumpValues } from "./presets";
-import type { CardConfig, EntityConfig, HassEntity, HomeAssistant } from "./types";
+import { darkness, seededRandom, solarAltitude, sunEvents } from "./sun";
+import { EventSource, stateIntervals } from "./events";
+import type { CardConfig, EntityConfig, EventConfig, HassEntity, HomeAssistant } from "./types";
 import "./editor";
 
 export const VERSION: string = pkg.version;
@@ -65,6 +67,24 @@ interface ThresholdModel {
   entity: EntityConfig;
 }
 
+interface EventMark {
+  cfg: EventConfig;
+  from: number;
+  to: number;
+  open: boolean;
+  x1: number;
+  x2: number;
+  color: string;
+  /** false when the start lies before the window (only the bar is drawn) */
+  pin: boolean;
+  /** own lane per configured event, so overlapping bars don't mix */
+  lane: number;
+}
+
+const EVENT_COLORS = ["#f2a53a", "#5fb0ff", "#5fd17a", "#c084fc", "#f87171", "#2dd4bf"];
+/** height of the event strip below the graph lines */
+const EVENT_STRIP = 24;
+
 interface GraphModel {
   key: string;
   width: number;
@@ -78,6 +98,7 @@ interface GraphModel {
   hasData: boolean;
   /** x positions of the time labels (relative hours before now) */
   ticks: Array<{ x: number; hours: number }>;
+  events: EventMark[];
 }
 
 let uid = 0;
@@ -148,6 +169,9 @@ export class BestNumberCard extends LitElement {
   private _scrub?: { x: number; y: number; active: boolean };
   private _suppressClick = false;
   private _hideTimer?: number;
+  private _dnCache?: { key: string; tpl: TemplateResult };
+  private _ev?: EventSource;
+  private _evKey = "";
   /** true while the card animates between compact and full mode */
   private _animating = false;
   private _storageKey = "";
@@ -232,7 +256,10 @@ export class BestNumberCard extends LitElement {
   }
 
   protected willUpdate(changed: PropertyValues): void {
-    if (changed.has("hass") || changed.has("_config") || changed.has("_compact")) this._syncDataSource();
+    if (changed.has("hass") || changed.has("_config") || changed.has("_compact")) {
+      this._syncDataSource();
+      this._syncEvents();
+    }
     const old = changed.get("hass") as HomeAssistant | undefined;
     const themeChanged = changed.has("_config") || !old || old.themes !== this.hass?.themes;
     if (themeChanged) {
@@ -315,7 +342,30 @@ export class BestNumberCard extends LitElement {
     this._ticker = window.setInterval(() => this._scheduleTick(), Math.min(Math.max(pxMs * 2, 5_000), 300_000));
   }
 
+  private _eventConfigs(): EventConfig[] {
+    return (this._config?.events ?? []).filter((e) => e && typeof e.entity === "string" && e.entity);
+  }
+
+  /** event pins: one lightweight state-history subscription, only in full mode with a graph */
+  private _syncEvents(): void {
+    const cfg = this._config;
+    if (!cfg || !this.hass || !this.isConnected) return;
+    const needed = !this._compact && (cfg.graph ?? DEFAULTS.graph) !== "none";
+    const ids = needed ? [...new Set(this._eventConfigs().map((e) => e.entity))] : [];
+    const key = ids.length ? JSON.stringify([ids, this._hours]) : "";
+    if (key === this._evKey) return;
+    this._ev?.dispose();
+    this._ev = undefined;
+    this._evKey = key;
+    if (!key) return;
+    this._ev = new EventSource(this.hass, ids, this._hours, () => this._scheduleTick());
+    this._ev.start();
+  }
+
   private _disposeDataSource(): void {
+    this._ev?.dispose();
+    this._ev = undefined;
+    this._evKey = "";
     this._ds?.dispose();
     this._ds = undefined;
     this._dsKey = "";
@@ -567,7 +617,7 @@ export class BestNumberCard extends LitElement {
     const plotW = Math.max(20, this._width - this._labelMargin(ents.filter((e) => !this._off.has(this._sid(e)))));
     const detail = (Number(cfg.detail) === 2 ? 2 : 1) as 1 | 2;
     const key = JSON.stringify([
-      this._tick, this._cfgVersion, this._dsKey, this._width, height, plotW, detail, [...this._off], this._ds.loaded, this._compact,
+      this._tick, this._cfgVersion, this._dsKey, this._width, height, plotW, detail, [...this._off], this._ds.loaded, this._compact, this._ev?.version ?? -1,
     ]);
     if (this._model?.key === key) return this._model;
 
@@ -620,13 +670,33 @@ export class BestNumberCard extends LitElement {
       }
     }
 
+    const xOf = (t: number) => ((t - start) / (end - start)) * plotW;
+    const events: EventMark[] = [];
+    if (this._ev && !this._compact) {
+      this._eventConfigs().forEach((ec, i) => {
+        const targets = ec.state === undefined ? ["on"] : Array.isArray(ec.state) ? ec.state.map(String) : [String(ec.state)];
+        for (const iv of stateIntervals(this._ev!.series(ec.entity), targets, start, end)) {
+          events.push({
+            cfg: ec,
+            ...iv,
+            x1: Math.max(0, xOf(iv.from)),
+            x2: Math.min(plotW, xOf(iv.to)),
+            color: ec.color || EVENT_COLORS[i % EVENT_COLORS.length],
+            pin: iv.from >= start,
+            lane: i,
+          });
+        }
+      });
+    }
+
     let hasData = false;
     const series: SeriesModel[] = agg.map(({ e, b }, index) => {
       const { lo, hi } = groups.get(e.scale || "default")!;
       const lineWidth = Number(e.line_width) > 0 ? Number(e.line_width) : multi ? 3 : 4;
       const inset = this._compact ? 8 : 2; // background graph: keep the lines off the edges
       const top = lineWidth / 2 + inset;
-      const bottom = height - lineWidth / 2 - inset;
+      // with event pins the lines keep clear of the event strip
+      const bottom = height - lineWidth / 2 - inset - (events.length ? EVENT_STRIP : 0);
       const y = (v: number) => {
         const c = Math.min(Math.max(v, lo), hi);
         return bottom - ((c - lo) / (hi - lo)) * (bottom - top);
@@ -686,7 +756,7 @@ export class BestNumberCard extends LitElement {
     }
 
     const ticks = this._compact ? [] : timeTicks(this._hours, plotW);
-    this._model = { key, width: this._width, plotW, height, start, end, series, axes, thresholds, hasData, ticks };
+    this._model = { key, width: this._width, plotW, height, start, end, series, axes, thresholds, hasData, ticks, events };
     return this._model;
   }
 
@@ -842,6 +912,7 @@ export class BestNumberCard extends LitElement {
         role="button"
         aria-label=${cfg.name ?? this._name(visible[0] ?? cfg.entities[0])}
       >
+        ${model && visible.length && cfg.day_night ? this._renderDayNight(model) : nothing}
         ${bgGraph && visible.length
           ? html`<div class="graph bg" aria-hidden="true">${model ? this._renderSvg(model, !this._ds?.loaded) : nothing}</div>`
           : nothing}
@@ -956,7 +1027,8 @@ export class BestNumberCard extends LitElement {
       Number(cfg.compact_font_size ?? cfg.font_size) > 0 ? `--bnc-cfs:${Number(cfg.compact_font_size ?? cfg.font_size)}px` : "",
       Number(cfg.compact_name_size) > 0 ? `--bnc-cns:${Number(cfg.compact_name_size)}px` : "",
     ].filter(Boolean).join(";");
-    return html`<div class="compact-row fade ${cfg.compact_graph && cfg.graph !== "none" ? "over-graph" : ""}" style=${vars}>
+    const over = cfg.compact_graph && cfg.graph !== "none";
+    return html`<div class="compact-row fade ${over ? "over-graph" : ""} ${over && cfg.day_night ? "soft-halo" : ""}" style=${vars}>
       ${cfg.compact_icon ? html`<span class="icon compact-icon">${this._renderIcon(first, cfg.icon)}</span>` : nothing}
       ${cfg.name ? html`<span class="compact-name">${cfg.name}</span>` : nothing}
       <div class="compact-values">
@@ -1013,13 +1085,14 @@ export class BestNumberCard extends LitElement {
               </div>`}
           ${yAxis !== "none" && model.hasData ? this._renderAxes(model, yAxis) : nothing}
           ${xAxis !== "none" && model.hasData ? this._renderTimeAxis(model, xAxis) : nothing}
+          ${model.hasData ? this._renderSunTimes(model) : nothing} ${this._renderEventPins(model)}
           ${this._renderTooltip(model)}`}
     </div>`;
   }
 
   private _renderAxes(m: GraphModel, mode: string): TemplateResult {
     const fmt = (e: EntityConfig, v: number) => `${this._formatValue(e, v)} ${this._unit(e)}`.trim();
-    return html`<div class="axes ${mode === "hover" ? "hover" : ""}">
+    return html`<div class="axes ${mode === "hover" ? "hover" : ""}" style=${m.events.length ? `bottom:${EVENT_STRIP}px` : ""}>
       ${m.axes.map((a) => {
         const c = (v: number) => (a.colored ? `color:${this._colorFor(a.entity, v)}` : "");
         return html`<div class="axis">
@@ -1027,6 +1100,151 @@ export class BestNumberCard extends LitElement {
         </div>`;
       })}
     </div>`;
+  }
+
+  private _isDark(): boolean {
+    return !!this.hass?.themes?.darkMode;
+  }
+
+  /**
+   * Night shading over the full card height, computed from the sun's altitude (twilight is a
+   * soft transition), with an optional star field that only shows where it is night.
+   */
+  private _renderDayNight(m: GraphModel): TemplateResult | typeof nothing {
+    const lat = Number(this.hass?.config?.latitude);
+    const lon = Number(this.hass?.config?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return nothing;
+    const cfg = this._config!;
+    const dark = this._isDark();
+    const stars = cfg.stars !== false;
+    const key = JSON.stringify([m.key, dark, stars, cfg.night_color, cfg.night_opacity, lat, lon]);
+    if (this._dnCache?.key === key) return this._dnCache.tpl;
+
+    const color = cfg.night_color || (dark ? "#03061a" : "#2b3d80");
+    const maxOpacity = Number(cfg.night_opacity) > 0 ? Number(cfg.night_opacity) / 100 : dark ? 0.55 : 0.13;
+    const cols = Math.max(2, Math.round(m.plotW / 4));
+    const samples: number[] = [];
+    for (let i = 0; i <= cols; i++) {
+      const t = m.start + (i / cols) * (m.end - m.start);
+      samples.push(darkness(solarAltitude(t, lat, lon)));
+    }
+    // keep only the stops where the darkness changes (runs collapse to two stops)
+    const stops: Array<[number, number]> = [];
+    samples.forEach((d, i) => {
+      if (i === 0 || i === cols || d !== samples[i - 1] || d !== samples[i + 1]) stops.push([i / cols, d]);
+    });
+    if (!stops.some(([, d]) => d > 0)) {
+      this._dnCache = { key, tpl: html`` };
+      return this._dnCache.tpl;
+    }
+    const id = `${this._uid}-dn`;
+    const grad = (white: boolean) =>
+      stops.map(
+        ([o, d]) => svg`<stop offset=${o} stop-color=${white ? "#fff" : color} stop-opacity=${white ? d : d * maxOpacity}></stop>`,
+      );
+    let starField: TemplateResult | typeof nothing = nothing;
+    if (stars) {
+      const rnd = seededRandom(parseInt(hash(this._uid + m.width), 36));
+      const count = Math.round((m.width * 400) / 1400);
+      const fill = dark ? "#ffffff" : "#5b6fb0";
+      const dots = [];
+      for (let i = 0; i < count; i++) {
+        const r = 0.4 + rnd() * (dark ? 1.0 : 0.8);
+        const o = (dark ? 0.35 : 0.25) + rnd() * (dark ? 0.6 : 0.35);
+        const tw = rnd() < 0.18;
+        dots.push(
+          svg`<circle class=${tw ? "star tw" : "star"} cx=${(rnd() * m.width).toFixed(1)} cy=${(rnd() * 400).toFixed(1)}
+            r=${r.toFixed(2)} fill=${fill} fill-opacity=${o.toFixed(2)}
+            style=${tw ? `animation-delay:${(rnd() * 4).toFixed(2)}s` : ""}></circle>`,
+        );
+      }
+      starField = svg`<g mask=${`url(#${id}-m)`}>${dots}</g>`;
+    }
+    const tpl = html`<div class="daynight" aria-hidden="true">
+      <svg width=${m.width} height="100%">
+        <defs>
+          <linearGradient id=${`${id}-g`} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">${grad(false)}</linearGradient>
+          ${stars
+            ? svg`<linearGradient id=${`${id}-w`} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">${grad(true)}</linearGradient>
+                <mask id=${`${id}-m`}><rect width=${m.width} height="100%" fill=${`url(#${id}-w)`}></rect></mask>`
+            : nothing}
+        </defs>
+        <rect width=${m.width} height="100%" fill=${`url(#${id}-g)`}></rect>
+        ${starField}
+      </svg>
+    </div>`;
+    this._dnCache = { key, tpl };
+    return tpl;
+  }
+
+  /** Sunrise / sunset markers at the top of the graph */
+  private _renderSunTimes(m: GraphModel): TemplateResult | typeof nothing {
+    const cfg = this._config!;
+    if (!cfg.day_night || cfg.sun_times === false) return nothing;
+    const lat = Number(this.hass?.config?.latitude);
+    const lon = Number(this.hass?.config?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return nothing;
+    const x = (t: number) => ((t - m.start) / (m.end - m.start)) * m.plotW;
+    return html`${sunEvents(m.start, m.end, lat, lon)
+      .filter((e) => x(e.t) > 18 && x(e.t) < m.plotW - 18)
+      .map(
+        (e) => html`<div class="sun-mark ${e.type}" style="left:${x(e.t)}px">
+          <ha-icon .icon=${e.type === "rise" ? "mdi:weather-sunset-up" : "mdi:weather-sunset-down"}></ha-icon>
+          <span>${formatTime(this.hass, e.t, false)}</span>
+        </div>`,
+      )}`;
+  }
+
+  private _eventName(ec: EventConfig): string {
+    return ec.name ?? this.hass?.states[ec.entity]?.attributes.friendly_name ?? ec.entity;
+  }
+
+  private _eventTimeText(ev: EventMark): string {
+    const withDate = this._hours > 24;
+    const a = formatTime(this.hass, ev.from, withDate);
+    return ev.open ? `${localize(this.hass, "card.since")} ${a}` : `${a}–${formatTime(this.hass, ev.to, false)}`;
+  }
+
+  /** dotted guide line and duration bar (svg, below the lines) */
+  private _renderEventShapes(m: GraphModel): TemplateResult | typeof nothing {
+    if (!m.events.length) return nothing;
+    const cy = m.height - EVENT_STRIP / 2;
+    // one thin lane per configured event (max. 4 visible lanes), centred in the strip
+    const lanes = Math.min(4, Math.max(...m.events.map((e) => e.lane)) + 1);
+    const h = lanes > 2 ? 3 : 4;
+    const gap = 2;
+    const top = cy - (lanes * h + (lanes - 1) * gap) / 2;
+    return svg`${m.events.map((ev) => {
+      const y = top + (ev.lane % lanes) * (h + gap);
+      return svg`
+        ${ev.pin ? svg`<line class="ev-guide" x1=${ev.x1} x2=${ev.x1} y1="0" y2=${cy - 10} style="stroke:${ev.color}"></line>` : nothing}
+        ${ev.x2 - ev.x1 > 1 ? svg`<rect class="ev-bar" x=${ev.x1} y=${y} width=${ev.x2 - ev.x1} height=${h} rx=${h / 2} style="fill:${ev.color}"></rect>` : nothing}`;
+    })}`;
+  }
+
+  /** pins (html, so HA icons can be used); overlapping pins are left out, their bars stay */
+  private _renderEventPins(m: GraphModel): TemplateResult | typeof nothing {
+    if (!m.events.length) return nothing;
+    let last = -Infinity;
+    const pins = m.events
+      .filter((e) => e.pin)
+      .sort((a, b) => a.x1 - b.x1)
+      .filter((e) => {
+        if (e.x1 - last < 22) return false;
+        last = e.x1;
+        return true;
+      });
+    return html`${pins.map((ev) => {
+      const st = this.hass?.states[ev.cfg.entity];
+      return html`<div
+        class="ev-pin"
+        data-entity=${ev.cfg.entity}
+        title=${`${this._eventName(ev.cfg)} · ${this._eventTimeText(ev)}`}
+        style="left:${ev.x1}px;bottom:${EVENT_STRIP / 2}px;--c:${ev.color}"
+      >
+        <ha-state-icon .hass=${this.hass} .stateObj=${st} .icon=${ev.cfg.icon}></ha-state-icon>
+      </div>`;
+    })}`;
   }
 
   private _renderTimeAxis(m: GraphModel, mode: string): TemplateResult {
@@ -1037,7 +1255,7 @@ export class BestNumberCard extends LitElement {
       if (h < 48) return `−${+h.toFixed(1)} h`;
       return `−${+(h / 24).toFixed(1)} d`;
     };
-    return html`<div class="xaxis ${mode === "hover" ? "hover" : ""}">
+    return html`<div class="xaxis ${mode === "hover" ? "hover" : ""}" style=${m.events.length ? `bottom:${EVENT_STRIP + 1}px` : ""}>
       ${m.ticks.map(
         (t) => html`<span class=${t.hours === 0 ? "now" : ""} style="left:${t.x}px">${label(t.hours)}</span>`,
       )}
@@ -1089,6 +1307,7 @@ export class BestNumberCard extends LitElement {
       ${m.ticks.map(
         (t) => (t.hours === 0 ? nothing : svg`<line class="tick" x1=${t.x} x2=${t.x} y1="0" y2=${m.height}></line>`),
       )}
+      ${this._renderEventShapes(m)}
       ${shown.map((s) => {
         const paint = s.gradId ? `url(#${s.gradId})` : s.color;
         const fillPaint = s.fillGradId ? `url(#${s.fillGradId})` : paint;
@@ -1177,6 +1396,15 @@ export class BestNumberCard extends LitElement {
           <span class="tt-value">${Number.isFinite(v) ? this._formatValue(s.cfg, v) : "–"} ${this._unit(s.cfg)}</span>
         </div>`,
       )}
+      ${m.events
+        .filter((ev) => ts >= ev.from && ts <= ev.to)
+        .map(
+          (ev) => html`<div class="tt-row tt-event">
+            <span class="marker dot" style="background:${ev.color}"></span>
+            <span class="tt-name">${this._eventName(ev.cfg)}</span>
+            <span class="tt-value">${this._eventTimeText(ev)}</span>
+          </div>`,
+        )}
     </div>`;
   }
 
@@ -1226,6 +1454,8 @@ export class BestNumberCard extends LitElement {
     }
     ha-card {
       height: 100%;
+      position: relative;
+      isolation: isolate; /* the day/night layer sits behind the content but above the card background */
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -1581,6 +1811,85 @@ export class BestNumberCard extends LitElement {
       margin-left: auto;
       font-weight: 500;
     }
+    .ev-guide {
+      stroke-width: 1;
+      stroke-dasharray: 2 3;
+      opacity: 0.45;
+    }
+    .ev-bar {
+      opacity: 0.75;
+    }
+    .ev-pin {
+      position: absolute;
+      transform: translate(-50%, 50%);
+      width: 20px;
+      height: 20px;
+      box-sizing: border-box;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--c);
+      background: color-mix(in srgb, var(--c) 22%, var(--card-background-color, #fff));
+      border: 1.5px solid var(--c);
+      --mdc-icon-size: 12px;
+      pointer-events: auto;
+      z-index: 1;
+    }
+    .ev-pin ha-state-icon {
+      display: flex;
+    }
+    .tt-event .tt-value {
+      font-weight: 400;
+      color: var(--secondary-text-color);
+    }
+    .daynight {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+    }
+    .daynight svg {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+    .star.tw {
+      animation: bnc-twinkle 4s ease-in-out infinite;
+    }
+    @keyframes bnc-twinkle {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.25;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .star.tw {
+        animation: none;
+      }
+    }
+    .sun-mark {
+      position: absolute;
+      top: 2px;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 9.5px;
+      line-height: 11px;
+      pointer-events: none;
+      --mdc-icon-size: 15px;
+      opacity: 0.85;
+    }
+    .sun-mark.rise {
+      color: #e0a43a;
+    }
+    .sun-mark.set {
+      color: #9aa6e6;
+    }
     .graph.bg {
       position: absolute;
       inset: 0;
@@ -1601,6 +1910,10 @@ export class BestNumberCard extends LitElement {
         0 0 4px var(--bnc-halo),
         0 0 8px var(--bnc-halo),
         0 0 12px var(--bnc-halo);
+    }
+    /* above the night shading a strong halo would show as light boxes */
+    .compact-row.over-graph.soft-halo {
+      text-shadow: 0 0 3px var(--bnc-halo);
     }
     .compact-row.over-graph ha-state-icon,
     .compact-row.over-graph .marker.dot {
