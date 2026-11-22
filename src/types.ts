@@ -183,6 +183,10 @@ export interface CardConfig {
   stars_density?: number;
   /** Star colour (default: white in a dark theme, dark blue in a light theme) */
   stars_color?: string;
+  /** Look of the bright stars: plain dots, soft glow (default) or a small four-pointed sparkle */
+  stars_style?: "dot" | "glow" | "sparkle";
+  /** Night sky at the top (default true): stars only in the upper part, the night lighter towards the bottom */
+  sky_top?: boolean;
   /** Colour of the card name and the entity names (both modes). */
   text_color?: string;
   /** @deprecated older name of `text_color` */

@@ -175,13 +175,15 @@ entities:
 |---|---|---|
 | `day_night` | `false` | Night over the full card height, with soft twilight |
 | `stars` | `true` | Starry sky in the night areas |
+| `sky_top` | `true` | Night sky at the top: stars only in the upper part, the night strongest there and lighter towards the bottom, so the area behind the lines stays calm. `false`: stars over the full height. |
+| `stars_style` | `glow` | Look of the few bright stars: `dot`, `glow` (soft glow) or `sparkle` (small four-pointed sparkle). Like a real sky, most stars are tiny and faint, only a few are bright. |
 | `sun_times` | `true` | Sunrise / sunset markers |
 | `night_color` / `night_opacity` | dark blue / 55 % (dark), 13 % (light) | Colour and strength of the night |
 | `dawn_color` / `dusk_color` | orange / pink | Colour of the morning and evening glow |
 | `twilight_opacity` | 30 % (dark), 20 % (light) | Strength of the glow, `0` = off |
 | `day_color` / `day_opacity` | – / 8 % (dark), 6 % (light) | Optional tint for the day |
 | `stars_brightness` / `stars_twinkle` / `stars_density` | 80 / 50 / 100 % | Brightness, share of twinkling stars, number of stars (up to 300 %) |
-| `stars_color` | auto | Star colour. Auto is white in a dark theme and dark blue in a light theme, where white stars would disappear on the bright night. |
+| `stars_color` | auto | Star colour. Auto is white with a few bluish and yellowish stars in a dark theme and dark blue in a light theme, where white stars would disappear on the bright night. |
 
 **Events**: see [Event pins](#event-pins)
 

@@ -128,6 +128,8 @@ export class BestNumberCardEditor extends LitElement {
       day_night: false,
       stars: true,
       sun_times: true,
+      sky_top: true,
+      stars_style: "glow",
       // show the real defaults on the sliders (they depend on the theme, like in the card)
       night_opacity: dark ? 55 : 13,
       twilight_opacity: dark ? 30 : 20,
@@ -227,6 +229,8 @@ export class BestNumberCardEditor extends LitElement {
                 { name: "stars", selector: { boolean: {} } },
                 { name: "sun_times", selector: { boolean: {} } },
               ]),
+              { name: "sky_top", selector: { boolean: {} } },
+              ...(c.stars !== false ? [{ name: "stars_style", selector: select(h, ["dot", "glow", "sparkle"], "opt.stars_") }] : []),
               { name: "night_opacity", selector: pct(5, 90) },
               { name: "twilight_opacity", selector: pct(0, 80) },
               ...(c.day_color ? [{ name: "day_opacity", selector: pct(0, 50) }] : []),
