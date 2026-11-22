@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aggregate, toPoints } from "../src/graph";
+import { aggregate, toPoints, quantile, scaleY } from "../src/graph";
 
 test("time-weighted mean with carry-forward", () => {
   // value 0 before the window, 10 from t=50
@@ -62,4 +62,26 @@ test("outages: a mostly unavailable pixel is a gap, a short blip is not", () => 
   assert.equal(b.mean[2], 6);
   const c = aggregate({ t: [0, 100, 110], v: [5, NaN, 6] }, 0, 200, 2);
   assert.ok(Number.isFinite(c.mean[1]), "10 % unavailable → no gap");
+});
+
+test("quantile ignores gaps and interpolates", () => {
+  assert.equal(quantile([NaN, 1, 2, 3, 4, 5], 0.5), 3);
+  assert.equal(quantile([0, 10], 0.25), 2.5);
+  assert.ok(Number.isNaN(quantile([NaN], 0.5)));
+});
+
+test("scaleY: peaks rise into the room above, compressed when they do not fit", () => {
+  // 0…100 fills 100…0 px
+  const plain = scaleY(0, 100, 0, 100);
+  assert.equal(plain(50), 50);
+  assert.equal(plain(500), 0); // clipped
+  // same scale while the peak fits into 40 px room
+  const fits = scaleY(0, 100, 0, 100, { max: 130, room: 40 });
+  assert.equal(fits(130), -30);
+  assert.equal(fits(50), 50);
+  // a much higher peak is squeezed into the room
+  const squeezed = scaleY(0, 100, 0, 100, { max: 1100, room: 40 });
+  assert.equal(squeezed(1100), -40);
+  assert.equal(squeezed(600), -20);
+  assert.equal(squeezed(5000), -40);
 });

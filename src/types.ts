@@ -71,6 +71,8 @@ export interface EntityConfig {
   attribute?: string;
   /** Shaded min/max band around the line (overrides the card option). */
   band?: boolean;
+  /** Overrides the card option peak_overflow */
+  peak_overflow?: boolean;
   /** Min / avg / max below the value (overrides the card option). */
   show_extrema?: boolean;
   /** Always load the full raw history (every peak, more load); statistics are only a preview. */
@@ -199,6 +201,10 @@ export interface CardConfig {
   x_axis?: "hover" | "always" | "none";
   /** Shaded band between the minimum and maximum of every point in time. */
   band?: boolean;
+  /** Single peaks may rise into the header; the scale follows the bulk of the values */
+  peak_overflow?: boolean;
+  /** Share of the values (in %) the normal graph area covers with peak_overflow (default 95) */
+  peak_percentile?: number;
   /** Font size of the values in px (default: like the sensor card). */
   font_size?: number;
   /** Tap a legend entry to hide/show its line (default true). */
