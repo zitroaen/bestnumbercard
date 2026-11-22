@@ -153,8 +153,9 @@ entities:
 | `smoothing` | `true` | Smooth curves |
 | `fill_gradient` | `value` | Fill coloring with color scales: `value` (horizontal bands) or `time` (vertical bands). Also per entity. |
 | `band` | `false` | Min/max band around every line (also per entity) |
-| `peak_overflow` | `false` | Single peaks may rise into the header, the highest one up to just below the card's top edge. The scale then follows the bulk of the values instead of the highest spike, so the rest of the graph is not squashed. If the whole graph is high, nothing changes. Also per entity. |
+| `peak_overflow` | `false` | Single peaks may rise into the header, the highest one up to `peak_margin` below the card's top edge. The scale then follows the bulk of the values instead of the highest spike, so the rest of the graph is not squashed. If the whole graph is high, nothing changes. Also per entity. |
 | `peak_percentile` | `95` | With `peak_overflow`: share of the values (in %) that count as normal. They fill the lower 60 % of the graph; everything above counts as a peak and may rise into the header. |
+| `peak_margin` | `12` | With `peak_overflow`: space in px kept free between the highest peak and the card's top edge |
 | `end_labels` | `none` | Label at the end of each line: `none`, `value`, `icon`, `icon_value` |
 | `y_axis` / `x_axis` | `hover` | Axis labels: `hover`, `always`, `none` |
 | `show_thresholds` | `false` | Dashed lines with labels at the jumps of the color scales |
