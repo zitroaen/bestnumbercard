@@ -908,12 +908,26 @@ export class BestNumberCardEditor extends LitElement {
     };
     return html`<div class="section-title">${this._l("editor.section.events")}</div>
       <div class="help">${this._l("editor.events_help")}</div>
+      ${events.length
+        ? html`<ha-form
+            .hass=${this.hass}
+            .data=${{ event_lines: this._config!.event_lines !== false }}
+            .schema=${[{ name: "event_lines", selector: { boolean: {} } }]}
+            .computeLabel=${this._computeLabel}
+            @value-changed=${(e: CustomEvent) => {
+              e.stopPropagation();
+              const c: any = { ...this._config!, event_lines: e.detail.value.event_lines };
+              if (c.event_lines !== false) delete c.event_lines;
+              this._emit(c);
+            }}
+          ></ha-form>`
+        : nothing}
       <div class="events">
         ${events.map(
           (ev, i) => html`<div class="event-row">
             <ha-form
               .hass=${this.hass}
-              .data=${{ ...ev, state: Array.isArray(ev.state) ? ev.state.join(", ") : ev.state }}
+              .data=${{ ...ev, state: Array.isArray(ev.state) ? ev.state.join(", ") : ev.state, event_line: toTri(ev.line) }}
               .schema=${[
                 { name: "entity", selector: { entity: {} } },
                 {
@@ -923,11 +937,16 @@ export class BestNumberCardEditor extends LitElement {
                     { name: "event_state", selector: { text: {} } },
                     { name: "name", selector: { text: {} } },
                     { name: "icon", selector: { icon: {} } },
+                    { name: "event_line", selector: select(this.hass, ["inherit", "on", "off"], "opt.tri_") },
                   ],
                 },
               ]}
               .computeLabel=${(sch: { name: string }) =>
-                sch.name === "event_state" ? this._l("field.event_state") : this._computeLabel(sch)}
+                sch.name === "event_state"
+                  ? this._l("field.event_state")
+                  : sch.name === "event_line"
+                    ? this._l("field.event_line")
+                    : this._computeLabel(sch)}
               @value-changed=${(e: CustomEvent) => {
                 e.stopPropagation();
                 const v = e.detail.value;
@@ -937,6 +956,7 @@ export class BestNumberCardEditor extends LitElement {
                   entity: v.entity,
                   name: v.name,
                   icon: v.icon,
+                  line: fromTri(v.event_line),
                   state: !states || !states.length ? undefined : states.length === 1 ? states[0] : states,
                 });
               }}

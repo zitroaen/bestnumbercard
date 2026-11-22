@@ -1241,7 +1241,7 @@ export class BestNumberCard extends LitElement {
     return svg`${m.events.map((ev) => {
       const y = top + (ev.lane % lanes) * (h + gap);
       return svg`
-        ${ev.pin ? svg`<line class="ev-guide" x1=${ev.x1} x2=${ev.x1} y1="0" y2=${cy - 10} style="stroke:${ev.color}"></line>` : nothing}
+        ${ev.pin && (ev.cfg.line ?? this._config!.event_lines) !== false ? svg`<line class="ev-guide" x1=${ev.x1} x2=${ev.x1} y1="0" y2=${cy - 10} style="stroke:${ev.color}"></line>` : nothing}
         ${ev.x2 - ev.x1 > 1 ? svg`<rect class="ev-bar" x=${ev.x1} y=${y} width=${ev.x2 - ev.x1} height=${h} rx=${h / 2} style="fill:${ev.color}"></rect>` : nothing}`;
     })}`;
   }

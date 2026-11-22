@@ -115,6 +115,8 @@ export interface EventConfig {
   name?: string;
   icon?: string;
   color?: string;
+  /** dotted vertical line into the graph (overrides the card option) */
+  line?: boolean;
 }
 
 export interface CardConfig {
@@ -149,6 +151,8 @@ export interface CardConfig {
   unavailable_text?: string;
   /** Event pins on the time axis (binary sensors, switches, any entity with discrete states). */
   events?: EventConfig[];
+  /** Dotted vertical lines from the event pins into the graph (default true). */
+  event_lines?: boolean;
   /** Day/night shading behind the card (computed from the location in HA). */
   day_night?: boolean;
   /** Stars in the night areas (default true). */

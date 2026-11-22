@@ -146,6 +146,7 @@ entities:
 | `stars_twinkle` | 50 | Share of twinkling stars in % |
 | `stars_density` | 100 | Number of stars in % (up to 300) |
 | `events` | – | Event pins, see below |
+| `event_lines` | `true` | Dotted vertical lines from the event pins into the graph (`line` per event overrides it) |
 | `text_color` | secondary text colour | Colour of the card name and the entity names (full and compact mode) |
 | `theme` | – | Theme for this card |
 | `tap_action` | `more-info` | Standard HA actions, plus `toggle-compact` |
@@ -220,6 +221,7 @@ events:
   - entity: climate.living_room
     state: heat                               # any state(s), e.g. [heat, cool]
     color: "#e2533f"
+    line: false                               # no vertical line for this event
 ```
 
 Each event gets a pin with its icon at the start, a bar for its duration (own lane per event) and a dotted guide line into the graph. Tap a pin to open the entity. Hovering the graph lists the active events in the tooltip.
