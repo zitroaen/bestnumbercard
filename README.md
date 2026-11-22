@@ -39,7 +39,7 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 - Switching is **animated**
 
 **Editor and performance**
-- **Visual editor** in English and German: color picker with theme colors, color scale preview with presets, drag & drop, warnings and performance hints
+- **Visual editor** in English and German: entities first, options in collapsible sections with a short explanation under every non-obvious field, color picker with theme colors, color scale preview with presets, drag & drop, warnings and performance hints
 - **Very light on your system** (see [Performance](#performance)): long-term statistics for long ranges, shared subscriptions, gap-only reloads, no polling
 - **Staged loading animation**, like the built-in card
 - Appears in HA's **card suggestions** for numeric sensors (HA 2026.6+)
@@ -51,7 +51,7 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 | Entities per card | 1 | any number |
 | Look (name, icon, big value, graph at the bottom) | ✓ | ✓ same layout |
 | `graph`, `detail`, `hours_to_show`, `limits`, `unit`, `name`, `icon`, `theme` | ✓ | ✓ |
-| Visual editor | ✓ | ✓ with color scale preview, presets, drag & drop, warnings |
+| Visual editor | ✓ | ✓ with sections and field explanations, color scale preview, presets, drag & drop, warnings |
 | Line color | fixed | per series, or a **color scale** by value |
 | Color scale with gradients and hard jumps | – | ✓ line, fill, value and marker |
 | Fill colored along time (vertical bands) | – | ✓ `fill_gradient: time` |
@@ -208,7 +208,7 @@ entities:
 |---|---|---|
 | `alert_style` | `glow` | `glow` (pulsing), `blink`, `static`. Thresholds are set per entity (`alert_above` / `alert_below`). |
 | `alert_color` | theme error colour | Colour of the alert glow |
-| `tap_action` | `more-info` | Standard HA actions, plus `toggle-compact`. With `more-info`, tapping a value opens that value's entity. |
+| `tap_action` | `more-info` | Standard HA actions (`more-info`, `toggle`, `navigate`, `url`, `perform-action`, `fire-dom-event`, incl. `confirmation`), plus `toggle-compact`. With `more-info`, tapping a value opens that value's entity. |
 | `hold_action` / `double_tap_action` | – | Standard HA actions, plus `toggle-compact` |
 
 ### Entity options

@@ -235,25 +235,39 @@ export interface PeakZone {
   room: number;
 }
 
+export interface YScale {
+  (v: number): number;
+  /** value drawn at `top` (for the axis label) */
+  topValue: number;
+  /** highest value that can be drawn (top of the room) */
+  maxValue: number;
+}
+
 /**
  * Value → y. lo…hi fills bottom…top. With a peak zone, values above hi rise into the `room`
  * above top. If the highest value fits on the same scale, the whole scale is stretched so it reaches the
  * top of the room; otherwise the part above hi is compressed into the room.
  */
-export function scaleY(lo: number, hi: number, top: number, bottom: number, peak?: PeakZone): (v: number) => number {
+export function scaleY(lo: number, hi: number, top: number, bottom: number, peak?: PeakZone): YScale {
   const k = (bottom - top) / (hi - lo);
+  const make = (f: (v: number) => number, topValue: number, maxValue: number): YScale =>
+    Object.assign(f, { topValue, maxValue });
   if (!peak || !(peak.max > hi) || !(peak.room > 0)) {
-    return (v) => bottom - (Math.min(Math.max(v, lo), hi) - lo) * k;
+    return make((v) => bottom - (Math.min(Math.max(v, lo), hi) - lo) * k, hi, hi);
   }
   const roof = top - peak.room;
   if (k * (peak.max - hi) <= peak.room) {
     // the highest peak fits: stretch the whole scale so it reaches the top of the room
     const kAll = (bottom - roof) / (peak.max - lo);
-    return (v) => bottom - (Math.min(Math.max(v, lo), peak.max) - lo) * kAll;
+    return make((v) => bottom - (Math.min(Math.max(v, lo), peak.max) - lo) * kAll, lo + (bottom - top) / kAll, peak.max);
   }
   const kPeak = peak.room / (peak.max - hi);
-  return (v) => {
-    const c = Math.min(Math.max(v, lo), peak.max);
-    return c <= hi ? bottom - (c - lo) * k : top - (c - hi) * kPeak;
-  };
+  return make(
+    (v) => {
+      const c = Math.min(Math.max(v, lo), peak.max);
+      return c <= hi ? bottom - (c - lo) * k : top - (c - hi) * kPeak;
+    },
+    hi,
+    peak.max,
+  );
 }

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 (globalThis as any).window ??= globalThis;
 (globalThis as any).document ??= { visibilityState: "visible" };
 
-const { DataSource, clearCache } = await import("../src/data");
+const { DataSource, clearCache, getStore } = await import("../src/data");
 
 const H = 3_600_000;
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -302,4 +302,12 @@ test("cards removed together do not hand the subscription over to each other", a
   b.dispose();
   await flush();
   assert.equal(subs.length, 1, "no extra subscription for a card that is going away anyway");
+});
+
+test("cache eviction never drops the store that was just created", () => {
+  clearCache();
+  for (let i = 0; i < 70; i++) getStore(`k${i}`);
+  const s = getStore("fresh");
+  assert.equal(getStore("fresh"), s);
+  clearCache();
 });

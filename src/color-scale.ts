@@ -111,24 +111,37 @@ export function gradientStops(
   lo: number,
   hi: number,
   resolve: (c: string) => RGBA,
+  /**
+   * For a piecewise linear value axis: value → offset (0…1) and the values where its slope
+   * changes (an extra stop is needed there, the SVG engine only interpolates linearly).
+   */
+  axis?: { offset: (v: number) => number; breaks: number[] },
 ): GradientStop[] {
   const span = hi - lo;
   if (!stops.length || !(span > 0)) {
     const c = rgbaToCss(colorAt(stops, mode, lo, resolve));
     return [{ offset: 0, color: c }, { offset: 1, color: c }];
   }
-  const off = (v: number) => (v - lo) / span;
+  const off = axis?.offset ?? ((v: number) => (v - lo) / span);
   const out: GradientStop[] = [{ offset: 0, color: rgbaToCss(colorAt(stops, mode, lo, resolve)) }];
+  // colour stops and slope breaks in value order (a break before a stop at the same value)
+  const points = [
+    ...(axis?.breaks ?? []).map((v) => ({ v, stop: undefined as ColorStop | undefined })),
+    ...stops.map((s) => ({ v: s.value, stop: s as ColorStop | undefined })),
+  ].sort((a, b) => a.v - b.v || (a.stop ? 1 : 0) - (b.stop ? 1 : 0));
   let current = colorAt(stops, mode, lo, resolve);
-  for (const s of stops) {
-    if (s.value <= lo || s.value >= hi) continue;
-    const o = off(s.value);
-    if (mode === "step") {
+  for (const p of points) {
+    if (p.v <= lo || p.v >= hi) continue;
+    const o = off(p.v);
+    if (!p.stop) {
+      // break: same colour the scale has here, no jump
+      out.push({ offset: o, color: rgbaToCss(mode === "step" ? current : colorAt(stops, mode, p.v, resolve)) });
+    } else if (mode === "step") {
       out.push({ offset: o, color: rgbaToCss(current) });
-      current = resolve(s.color);
+      current = resolve(p.stop.color);
       out.push({ offset: o, color: rgbaToCss(current) });
     } else {
-      out.push({ offset: o, color: rgbaToCss(resolve(s.color)) });
+      out.push({ offset: o, color: rgbaToCss(resolve(p.stop.color)) });
     }
   }
   out.push({ offset: 1, color: rgbaToCss(colorAt(stops, mode, hi, resolve)) });

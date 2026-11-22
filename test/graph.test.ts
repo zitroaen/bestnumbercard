@@ -85,3 +85,13 @@ test("scaleY: peaks rise into the room above, compressed when they do not fit", 
   assert.equal(squeezed(600), -20);
   assert.equal(squeezed(5000), -40);
 });
+
+test("scaleY reports the value at the top and the highest drawable value", () => {
+  assert.equal(scaleY(0, 100, 0, 100).topValue, 100);
+  const fits = scaleY(0, 100, 0, 100, { max: 130, room: 40 });
+  assert.equal(fits.maxValue, 130);
+  assert.ok(Math.abs(fits.topValue - 130 * (100 / 140)) < 1e-9);
+  const squeezed = scaleY(0, 100, 0, 100, { max: 1100, room: 40 });
+  assert.equal(squeezed.topValue, 100);
+  assert.equal(squeezed.maxValue, 1100);
+});

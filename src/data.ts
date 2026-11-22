@@ -167,7 +167,8 @@ export function getStore(key: string): EntityStore {
     CACHE.set(key, store);
     if (CACHE.size > MAX_CACHE_ENTRIES) {
       // evict the least recently used store that no card is showing right now
-      const candidates = [...CACHE.entries()].filter(([, s]) => !s.subscribers.size);
+      // (never the store that was just created – its lastUsed is still 0)
+      const candidates = [...CACHE.entries()].filter(([, s]) => s !== store && !s.subscribers.size);
       const oldest = candidates.sort((a, b) => a[1].lastUsed - b[1].lastUsed)[0];
       if (oldest) CACHE.delete(oldest[0]);
     }

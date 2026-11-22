@@ -77,3 +77,17 @@ test("editor rows: equal values become one row with a jump and back", async () =
   assert.deepEqual(jumpValues(stops), [95]);
   assert.deepEqual(jumpValues([{ value: 0, color: "a" }, { value: 10, color: "b" }], "step"), [10]);
 });
+
+test("gradientStops on a piecewise axis: extra stop at the break, stops above it placed by the axis", () => {
+  const stops = sortStops([
+    { value: 0, color: "#000000" },
+    { value: 1000, color: "#ffffff" },
+  ]);
+  // 0…100 → 0…0.5, 100…1000 → 0.5…1
+  const offset = (v: number) => (v <= 100 ? (v / 100) * 0.5 : 0.5 + ((v - 100) / 900) * 0.5);
+  const g = gradientStops(stops, "gradient", 0, 1000, resolve, { offset, breaks: [100] });
+  assert.equal(g.length, 3);
+  assert.equal(g[1].offset, 0.5);
+  assert.equal(g[1].color, "rgb(26,26,26)"); // colour at value 100, not halfway
+  assert.equal(g[2].color, "rgb(255,255,255)");
+});

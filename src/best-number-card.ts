@@ -3,7 +3,7 @@ import pkg from "../package.json";
 import { runAction } from "./actions";
 import { colorAt, gradientStops, timeGradientStops, parseColor, rgbaToCss, sortStops, type GradientStop, type RGBA } from "./color-scale";
 import { DataSource, seriesId } from "./data";
-import { aggregate, bandPath, dataRange, quantile, scaleY, timeTicks, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
+import { aggregate, bandPath, dataRange, quantile, scaleY, timeTicks, type YScale, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
 import { formatNumber, formatTime, localize } from "./localize";
 import { defaultColor, jumpValues } from "./presets";
 import { seededRandom, skyWeights, solarAltitude, sunEvents } from "./sun";
@@ -37,7 +37,7 @@ interface SeriesModel {
   segs: Point[][];
   lo: number;
   hi: number;
-  y: (v: number) => number;
+  y: YScale;
   gradId?: string;
   grad?: GradientStop[];
   /** separate horizontal gradient for the fill area (fill_gradient: time) */
@@ -250,6 +250,9 @@ export class BestNumberCard extends LitElement {
     this._ro = undefined;
     this._graphEl = undefined;
     clearTimeout(this._hideTimer);
+    clearTimeout(this._holdTimer);
+    clearTimeout(this._clickTimer);
+    this._clickTimer = undefined;
   }
 
   protected shouldUpdate(changed: PropertyValues): boolean {
@@ -766,7 +769,13 @@ export class BestNumberCard extends LitElement {
       if (e.color_scale?.length) {
         m.gradId = `${this._uid}-g${index}`;
         const mode = e.color_scale_mode ?? "gradient";
-        m.grad = gradientStops(e.color_scale, mode, lo, hi, this._resolve);
+        // with peak_overflow the scale continues above hi (piecewise linear) up to y.maxValue
+        const top = y.maxValue;
+        const y0 = y(lo);
+        const span = y0 - y(top);
+        m.grad = gradientStops(e.color_scale, mode, lo, top, this._resolve, top > hi && span > 0
+          ? { offset: (v) => (y0 - y(v)) / span, breaks: [hi] }
+          : undefined);
         if (m.fill && (e.fill_gradient ?? cfg.fill_gradient) === "time") {
           m.fillGradId = `${this._uid}-f${index}`;
           m.fillGrad = timeGradientStops(e.color_scale, mode, b.mean, this._resolve);
@@ -778,7 +787,9 @@ export class BestNumberCard extends LitElement {
     const axes: AxisModel[] = [];
     for (const r of groups.values()) {
       if (!r.first) continue;
-      axes.push({ lo: r.lo, hi: r.hi, entity: r.first, colored: axesCount(groups) > 1 });
+      // the label at the top shows the value drawn there (differs from hi with peak_overflow)
+      const top = series.find((s) => s.cfg === r.first)?.y.topValue ?? r.hi;
+      axes.push({ lo: r.lo, hi: top, entity: r.first, colored: axesCount(groups) > 1 });
     }
 
     const thresholds: ThresholdModel[] = [];
@@ -787,7 +798,8 @@ export class BestNumberCard extends LitElement {
       for (const s of series) {
         if (s.off) continue;
         for (const v of jumpValues(s.cfg.color_scale, s.cfg.color_scale_mode)) {
-          if (v <= s.lo || v >= s.hi) continue;
+          // also in the peak zone, but only inside the graph area
+          if (v <= s.lo || v >= s.y.maxValue || s.y(v) < 0) continue;
           const yy = Math.round(s.y(v));
           if (seen.has(yy)) continue;
           seen.add(yy);
@@ -1353,7 +1365,7 @@ export class BestNumberCard extends LitElement {
           : nothing}
         ${shown.map((s) =>
           s.gradId
-            ? svg`<linearGradient id=${s.gradId} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1=${s.y(s.lo)} y2=${s.y(s.hi)}>
+            ? svg`<linearGradient id=${s.gradId} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1=${s.y(s.lo)} y2=${s.y(s.y.maxValue)}>
                 ${s.grad!.map((g) => svg`<stop offset=${g.offset} stop-color=${g.color}></stop>`)}
               </linearGradient>`
             : nothing,
@@ -1562,7 +1574,9 @@ export class BestNumberCard extends LitElement {
       justify-content: space-between;
     }
     /* peak_overflow: the peaks rise behind the header – keep the text on top and readable */
-    .peaks .header {
+    .peaks .header,
+    .peaks .values,
+    .peaks .info {
       position: relative;
       z-index: 1;
       pointer-events: none;
@@ -1570,7 +1584,9 @@ export class BestNumberCard extends LitElement {
         0 0 4px var(--ha-card-background, var(--card-background-color, #fff)),
         0 0 8px var(--ha-card-background, var(--card-background-color, #fff));
     }
-    .peaks .header > * {
+    .peaks .header > *,
+    .peaks .values > *,
+    .peaks .info > * {
       pointer-events: auto;
     }
     .header.tight {
