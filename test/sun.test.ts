@@ -37,3 +37,12 @@ test("darkness: 0 by day, 1 at night, smooth in between", () => {
   const mid = darkness(-6.4);
   assert.ok(mid > 0.3 && mid < 0.7);
 });
+
+test("sky weights: twilight glow peaks around the horizon, day from 8°", async () => {
+  const { skyWeights } = await import("../src/sun");
+  assert.deepEqual(skyWeights(20), { night: 0, twilight: 0, day: 1 });
+  assert.equal(skyWeights(-20).night, 1);
+  assert.equal(skyWeights(-20).twilight, 0);
+  assert.ok(skyWeights(-1).twilight > 0.99);
+  assert.ok(skyWeights(3).twilight > 0.3 && skyWeights(3).day > 0);
+});

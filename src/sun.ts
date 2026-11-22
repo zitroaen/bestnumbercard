@@ -79,3 +79,24 @@ export function seededRandom(seed: number): () => number {
     return ((s >>> 0) % 1_000_000) / 1_000_000;
   };
 }
+
+const smooth = (x: number) => {
+  const f = Math.min(1, Math.max(0, x));
+  return f * f * (3 - 2 * f);
+};
+
+export interface SkyWeights {
+  /** 0…1 night (complete at nautical dusk) */
+  night: number;
+  /** 0…1 dawn / dusk glow, strongest just below the horizon */
+  twilight: number;
+  /** 0…1 daylight (full from 8° altitude) */
+  day: number;
+}
+
+/** How much night, twilight glow and day there is at a given solar altitude. */
+export function skyWeights(altitude: number): SkyWeights {
+  const twilight =
+    altitude <= -1 ? smooth((altitude - DARK) / (-1 - DARK)) : 1 - smooth((altitude + 1) / 9);
+  return { night: darkness(altitude), twilight, day: smooth(altitude / 8) };
+}

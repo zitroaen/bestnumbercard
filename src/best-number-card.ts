@@ -6,7 +6,7 @@ import { DataSource, seriesId } from "./data";
 import { aggregate, bandPath, dataRange, timeTicks, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
 import { formatNumber, formatTime, localize } from "./localize";
 import { defaultColor, jumpValues } from "./presets";
-import { darkness, seededRandom, solarAltitude, sunEvents } from "./sun";
+import { seededRandom, skyWeights, solarAltitude, sunEvents } from "./sun";
 import { EventSource, stateIntervals } from "./events";
 import type { CardConfig, EntityConfig, EventConfig, HassEntity, HomeAssistant } from "./types";
 import "./editor";
@@ -1117,60 +1117,84 @@ export class BestNumberCard extends LitElement {
     const cfg = this._config!;
     const dark = this._isDark();
     const stars = cfg.stars !== false;
-    const key = JSON.stringify([m.key, dark, stars, cfg.night_color, cfg.night_opacity, lat, lon]);
+    const key = JSON.stringify([
+      m.key, dark, lat, lon, stars, cfg.night_color, cfg.night_opacity, cfg.dawn_color, cfg.dusk_color, cfg.day_color,
+      cfg.twilight_opacity, cfg.day_opacity, cfg.stars_brightness, cfg.stars_twinkle, cfg.stars_density,
+    ]);
     if (this._dnCache?.key === key) return this._dnCache.tpl;
 
-    const color = cfg.night_color || (dark ? "#03061a" : "#2b3d80");
-    const maxOpacity = Number(cfg.night_opacity) > 0 ? Number(cfg.night_opacity) / 100 : dark ? 0.55 : 0.13;
+    const pct = (v: unknown, def: number) => (isSet(v) && Number.isFinite(Number(v)) ? Math.max(0, Number(v)) / 100 : def);
+    const nightColor = cfg.night_color || (dark ? "#03061a" : "#2b3d80");
+    const nightOpacity = pct(cfg.night_opacity, dark ? 0.55 : 0.13);
+    const dawnColor = cfg.dawn_color || "#ff8a3d";
+    const duskColor = cfg.dusk_color || "#d9467a";
+    const twilightOpacity = pct(cfg.twilight_opacity, dark ? 0.3 : 0.2);
+    const dayColor = cfg.day_color || "";
+    const dayOpacity = pct(cfg.day_opacity, dark ? 0.08 : 0.06);
+
+    // sample the sky every ~4 px: night, dawn/dusk glow and day as three layers
     const cols = Math.max(2, Math.round(m.plotW / 4));
-    const samples: number[] = [];
+    const smp: Array<{ o: number; n: number; tw: number; d: number; rising: boolean }> = [];
     for (let i = 0; i <= cols; i++) {
       const t = m.start + (i / cols) * (m.end - m.start);
-      samples.push(darkness(solarAltitude(t, lat, lon)));
+      const alt = solarAltitude(t, lat, lon);
+      const w = skyWeights(alt);
+      smp.push({ o: i / cols, n: w.night, tw: w.twilight, d: w.day, rising: solarAltitude(t + 600_000, lat, lon) > alt });
     }
-    // keep only the stops where the darkness changes (runs collapse to two stops)
-    const stops: Array<[number, number]> = [];
-    samples.forEach((d, i) => {
-      if (i === 0 || i === cols || d !== samples[i - 1] || d !== samples[i + 1]) stops.push([i / cols, d]);
-    });
-    if (!stops.some(([, d]) => d > 0)) {
+    // keep only the stops where something changes
+    const compact = <T,>(vals: T[], same: (a: T, b: T) => boolean) =>
+      vals.filter((v, i) => i === 0 || i === vals.length - 1 || !same(v, vals[i - 1]) || !same(v, vals[i + 1]));
+    const id = `${this._uid}-dn`;
+    const layer = (name: string, stops: Array<[number, string, number]>) => {
+      const st = compact(stops, (a, b) => a[1] === b[1] && a[2] === b[2]);
+      if (!st.some(([, , op]) => op > 0.001)) return { def: nothing, rect: nothing };
+      return {
+        def: svg`<linearGradient id=${`${id}-${name}`} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">
+          ${st.map(([o, c, op]) => svg`<stop offset=${o} stop-color=${c} stop-opacity=${op.toFixed(3)}></stop>`)}</linearGradient>`,
+        rect: svg`<rect width=${m.width} height="100%" fill=${`url(#${id}-${name})`}></rect>`,
+      };
+    };
+    const night = layer("n", smp.map((p) => [p.o, nightColor, p.n * nightOpacity]));
+    const twil = layer("t", smp.map((p) => [p.o, p.rising ? dawnColor : duskColor, p.tw * twilightOpacity]));
+    const day = dayColor ? layer("d", smp.map((p) => [p.o, dayColor, p.d * dayOpacity])) : { def: nothing, rect: nothing };
+    if (night.rect === nothing && twil.rect === nothing && day.rect === nothing) {
       this._dnCache = { key, tpl: html`` };
       return this._dnCache.tpl;
     }
-    const id = `${this._uid}-dn`;
-    const grad = (white: boolean) =>
-      stops.map(
-        ([o, d]) => svg`<stop offset=${o} stop-color=${white ? "#fff" : color} stop-opacity=${white ? d : d * maxOpacity}></stop>`,
-      );
+
+    // stars: stable field per card, masked by the night
     let starField: TemplateResult | typeof nothing = nothing;
-    if (stars) {
+    let starMask: TemplateResult | typeof nothing = nothing;
+    const brightness = pct(cfg.stars_brightness, 0.8);
+    const twinkle = pct(cfg.stars_twinkle, 0.5);
+    const density = pct(cfg.stars_density, 1);
+    if (stars && night.rect !== nothing && brightness > 0 && density > 0) {
       const rnd = seededRandom(parseInt(hash(this._uid + m.width), 36));
-      const count = Math.round((m.width * 400) / 1400);
-      const fill = dark ? "#ffffff" : "#5b6fb0";
+      const count = Math.round(((m.width * 400) / 1300) * density);
+      // light theme: darker, slightly bigger stars, otherwise they disappear on the bright card
+      const fill = dark ? "#ffffff" : "#26367a";
       const dots = [];
       for (let i = 0; i < count; i++) {
-        const r = 0.4 + rnd() * (dark ? 1.0 : 0.8);
-        const o = (dark ? 0.35 : 0.25) + rnd() * (dark ? 0.6 : 0.35);
-        const tw = rnd() < 0.18;
+        const r = (dark ? 0.5 : 0.65) + rnd() * (dark ? 1.0 : 1.0);
+        const o = Math.min(1, (0.45 + rnd() * 0.55) * brightness * (dark ? 1 : 0.9));
+        const tw = rnd() < twinkle * 0.8;
+        const dur = 1.6 + rnd() * 3;
         dots.push(
           svg`<circle class=${tw ? "star tw" : "star"} cx=${(rnd() * m.width).toFixed(1)} cy=${(rnd() * 400).toFixed(1)}
             r=${r.toFixed(2)} fill=${fill} fill-opacity=${o.toFixed(2)}
-            style=${tw ? `animation-delay:${(rnd() * 4).toFixed(2)}s` : ""}></circle>`,
+            style=${tw ? `animation-duration:${dur.toFixed(2)}s;animation-delay:${(-rnd() * dur).toFixed(2)}s` : ""}></circle>`,
         );
       }
+      const maskStops = compact(smp.map((p) => [p.o, p.n] as [number, number]), (a, b) => a[1] === b[1]);
+      starMask = svg`<linearGradient id=${`${id}-w`} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">
+          ${maskStops.map(([o, n]) => svg`<stop offset=${o} stop-color="#fff" stop-opacity=${n.toFixed(3)}></stop>`)}</linearGradient>
+        <mask id=${`${id}-m`}><rect width=${m.width} height="100%" fill=${`url(#${id}-w)`}></rect></mask>`;
       starField = svg`<g mask=${`url(#${id}-m)`}>${dots}</g>`;
     }
     const tpl = html`<div class="daynight" aria-hidden="true">
       <svg width=${m.width} height="100%">
-        <defs>
-          <linearGradient id=${`${id}-g`} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">${grad(false)}</linearGradient>
-          ${stars
-            ? svg`<linearGradient id=${`${id}-w`} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">${grad(true)}</linearGradient>
-                <mask id=${`${id}-m`}><rect width=${m.width} height="100%" fill=${`url(#${id}-w)`}></rect></mask>`
-            : nothing}
-        </defs>
-        <rect width=${m.width} height="100%" fill=${`url(#${id}-g)`}></rect>
-        ${starField}
+        <defs>${day.def} ${twil.def} ${night.def} ${starMask}</defs>
+        ${day.rect} ${twil.rect} ${night.rect} ${starField}
       </svg>
     </div>`;
     this._dnCache = { key, tpl };
@@ -1217,7 +1241,7 @@ export class BestNumberCard extends LitElement {
     return svg`${m.events.map((ev) => {
       const y = top + (ev.lane % lanes) * (h + gap);
       return svg`
-        ${ev.pin ? svg`<line class="ev-guide" x1=${ev.x1} x2=${ev.x1} y1="0" y2=${cy - 10} style="stroke:${ev.color}"></line>` : nothing}
+        ${ev.pin && (ev.cfg.line ?? this._config!.event_lines) !== false ? svg`<line class="ev-guide" x1=${ev.x1} x2=${ev.x1} y1="0" y2=${cy - 10} style="stroke:${ev.color}"></line>` : nothing}
         ${ev.x2 - ev.x1 > 1 ? svg`<rect class="ev-bar" x=${ev.x1} y=${y} width=${ev.x2 - ev.x1} height=${h} rx=${h / 2} style="fill:${ev.color}"></rect>` : nothing}`;
     })}`;
   }
@@ -1857,13 +1881,19 @@ export class BestNumberCard extends LitElement {
     .star.tw {
       animation: bnc-twinkle 4s ease-in-out infinite;
     }
+    .star.tw {
+      transform-box: fill-box;
+      transform-origin: center;
+    }
     @keyframes bnc-twinkle {
       0%,
       100% {
         opacity: 1;
+        transform: scale(1);
       }
       50% {
-        opacity: 0.25;
+        opacity: 0.1;
+        transform: scale(0.55);
       }
     }
     @media (prefers-reduced-motion: reduce) {

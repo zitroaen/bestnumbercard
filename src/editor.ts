@@ -234,8 +234,19 @@ export class BestNumberCardEditor extends LitElement {
                       grid([
                         { name: "stars", selector: { boolean: {} } },
                         { name: "sun_times", selector: { boolean: {} } },
-                        { name: "night_opacity", selector: { number: { mode: "slider", min: 5, max: 90, step: 1, unit_of_measurement: "%" } } },
                       ]),
+                      { name: "night_opacity", selector: { number: { mode: "slider", min: 5, max: 90, step: 1, unit_of_measurement: "%" } } },
+                      { name: "twilight_opacity", selector: { number: { mode: "slider", min: 0, max: 80, step: 1, unit_of_measurement: "%" } } },
+                      ...(c.day_color
+                        ? [{ name: "day_opacity", selector: { number: { mode: "slider", min: 0, max: 50, step: 1, unit_of_measurement: "%" } } }]
+                        : []),
+                      ...(c.stars !== false
+                        ? [
+                            { name: "stars_brightness", selector: { number: { mode: "slider", min: 10, max: 100, step: 1, unit_of_measurement: "%" } } },
+                            { name: "stars_twinkle", selector: { number: { mode: "slider", min: 0, max: 100, step: 1, unit_of_measurement: "%" } } },
+                            { name: "stars_density", selector: { number: { mode: "slider", min: 10, max: 300, step: 5, unit_of_measurement: "%" } } },
+                          ]
+                        : []),
                     ]
                   : []),
               ],
@@ -792,6 +803,23 @@ export class BestNumberCardEditor extends LitElement {
     </div>`;
   }
 
+  private _renderSkyColors(): TemplateResult {
+    const c = this._config!;
+    const field = (key: "night_color" | "dawn_color" | "dusk_color" | "day_color", placeholder: string) => html`<div class="field-row">
+      <span class="field-label">${this._l(`field.${key}`)}</span>
+      ${this._renderColorField(
+        key,
+        c[key],
+        (col) => this._emit(clean({ ...c, [key]: col }) as CardConfig),
+        this._l(`field.${key}`),
+        placeholder,
+      )}
+    </div>`;
+    return html`<div class="section-title">${this._l("editor.section.sky")}</div>
+      ${field("night_color", "#03061a")} ${field("dawn_color", "#ff8a3d")} ${field("dusk_color", "#d9467a")}
+      ${field("day_color", "")}`;
+  }
+
   private _renderAlertSection(): TemplateResult {
     const c = this._config!;
     const used = c.entities.some((e) => isSet(e.alert_above) || isSet(e.alert_below));
@@ -842,6 +870,7 @@ export class BestNumberCardEditor extends LitElement {
           "var(--secondary-text-color)",
         )}
       </div>
+      ${this._config.day_night && this._config.graph !== "none" ? this._renderSkyColors() : nothing}
       ${this._renderAlertSection()}
       <div class="section-title">${this._l("editor.section.entities")}</div>
       <div class="entities ${this._drag ? "is-dragging" : ""}">
@@ -879,12 +908,26 @@ export class BestNumberCardEditor extends LitElement {
     };
     return html`<div class="section-title">${this._l("editor.section.events")}</div>
       <div class="help">${this._l("editor.events_help")}</div>
+      ${events.length
+        ? html`<ha-form
+            .hass=${this.hass}
+            .data=${{ event_lines: this._config!.event_lines !== false }}
+            .schema=${[{ name: "event_lines", selector: { boolean: {} } }]}
+            .computeLabel=${this._computeLabel}
+            @value-changed=${(e: CustomEvent) => {
+              e.stopPropagation();
+              const c: any = { ...this._config!, event_lines: e.detail.value.event_lines };
+              if (c.event_lines !== false) delete c.event_lines;
+              this._emit(c);
+            }}
+          ></ha-form>`
+        : nothing}
       <div class="events">
         ${events.map(
           (ev, i) => html`<div class="event-row">
             <ha-form
               .hass=${this.hass}
-              .data=${{ ...ev, state: Array.isArray(ev.state) ? ev.state.join(", ") : ev.state }}
+              .data=${{ ...ev, state: Array.isArray(ev.state) ? ev.state.join(", ") : ev.state, event_line: toTri(ev.line) }}
               .schema=${[
                 { name: "entity", selector: { entity: {} } },
                 {
@@ -894,11 +937,16 @@ export class BestNumberCardEditor extends LitElement {
                     { name: "event_state", selector: { text: {} } },
                     { name: "name", selector: { text: {} } },
                     { name: "icon", selector: { icon: {} } },
+                    { name: "event_line", selector: select(this.hass, ["inherit", "on", "off"], "opt.tri_") },
                   ],
                 },
               ]}
               .computeLabel=${(sch: { name: string }) =>
-                sch.name === "event_state" ? this._l("field.event_state") : this._computeLabel(sch)}
+                sch.name === "event_state"
+                  ? this._l("field.event_state")
+                  : sch.name === "event_line"
+                    ? this._l("field.event_line")
+                    : this._computeLabel(sch)}
               @value-changed=${(e: CustomEvent) => {
                 e.stopPropagation();
                 const v = e.detail.value;
@@ -908,6 +956,7 @@ export class BestNumberCardEditor extends LitElement {
                   entity: v.entity,
                   name: v.name,
                   icon: v.icon,
+                  line: fromTri(v.event_line),
                   state: !states || !states.length ? undefined : states.length === 1 ? states[0] : states,
                 });
               }}

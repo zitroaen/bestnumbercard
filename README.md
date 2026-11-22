@@ -138,7 +138,15 @@ entities:
 | `sun_times` | `true` | Sunrise / sunset markers |
 | `night_color` | dark blue | Colour of the night |
 | `night_opacity` | 55 (dark) / 13 (light) | Strength of the night shading in % |
+| `dawn_color` / `dusk_color` | orange / pink | Colour of the morning and evening glow |
+| `twilight_opacity` | 30 (dark) / 20 (light) | Strength of the morning / evening glow in %, `0` = off |
+| `day_color` | – | Optional tint for the day |
+| `day_opacity` | 8 (dark) / 6 (light) | Strength of the day tint in % |
+| `stars_brightness` | 80 | Brightness of the stars in % |
+| `stars_twinkle` | 50 | Share of twinkling stars in % |
+| `stars_density` | 100 | Number of stars in % (up to 300) |
 | `events` | – | Event pins, see below |
+| `event_lines` | `true` | Dotted vertical lines from the event pins into the graph (`line` per event overrides it) |
 | `text_color` | secondary text colour | Colour of the card name and the entity names (full and compact mode) |
 | `theme` | – | Theme for this card |
 | `tap_action` | `more-info` | Standard HA actions, plus `toggle-compact` |
@@ -188,9 +196,16 @@ By default the fill area uses the same height-based coloring as the line, which 
 
 ```yaml
 day_night: true     # night over the full card height, soft twilight
-stars: true         # starry sky (twinkles gently, off with reduced motion)
+stars: true         # starry sky (twinkles, off with reduced motion)
 sun_times: true     # sunrise / sunset markers
+# optional
+dawn_color: "#ff8a3d"   # morning glow
+dusk_color: "#d9467a"   # evening glow
+day_color: "#ffd27a"    # tint for the day
+stars_twinkle: 70
 ```
+
+The card knows from the sun's course whether it is rising or setting, so morning and evening glow get their own colours.
 
 The sun's position is computed in the browser from the latitude and longitude of your Home Assistant installation, so this needs no request at all. In a light theme the night is a soft blue-grey with faint stars, and in a dark theme a deep blue.
 
@@ -206,6 +221,7 @@ events:
   - entity: climate.living_room
     state: heat                               # any state(s), e.g. [heat, cool]
     color: "#e2533f"
+    line: false                               # no vertical line for this event
 ```
 
 Each event gets a pin with its icon at the start, a bar for its duration (own lane per event) and a dotted guide line into the graph. Tap a pin to open the entity. Hovering the graph lists the active events in the tooltip.

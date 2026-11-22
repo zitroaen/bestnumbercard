@@ -115,6 +115,8 @@ export interface EventConfig {
   name?: string;
   icon?: string;
   color?: string;
+  /** dotted vertical line into the graph (overrides the card option) */
+  line?: boolean;
 }
 
 export interface CardConfig {
@@ -149,6 +151,8 @@ export interface CardConfig {
   unavailable_text?: string;
   /** Event pins on the time axis (binary sensors, switches, any entity with discrete states). */
   events?: EventConfig[];
+  /** Dotted vertical lines from the event pins into the graph (default true). */
+  event_lines?: boolean;
   /** Day/night shading behind the card (computed from the location in HA). */
   day_night?: boolean;
   /** Stars in the night areas (default true). */
@@ -159,6 +163,22 @@ export interface CardConfig {
   night_color?: string;
   /** Strength of the night shading in % (default: 55 dark / 13 light theme). */
   night_opacity?: number;
+  /** Colour of the morning glow (default orange) */
+  dawn_color?: string;
+  /** Colour of the evening glow (default pink) */
+  dusk_color?: string;
+  /** Strength of morning / evening glow in % (default 30 dark / 20 light, 0 = off) */
+  twilight_opacity?: number;
+  /** Optional tint for the day */
+  day_color?: string;
+  /** Strength of the day tint in % (default 8 dark / 6 light) */
+  day_opacity?: number;
+  /** Star brightness in % (default 80) */
+  stars_brightness?: number;
+  /** Share of twinkling stars in % (default 50) */
+  stars_twinkle?: number;
+  /** Star density in % (default 100) */
+  stars_density?: number;
   /** Colour of the card name and the entity names (both modes). */
   text_color?: string;
   /** @deprecated older name of `text_color` */
