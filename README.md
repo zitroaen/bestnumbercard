@@ -14,6 +14,8 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 - **Min/max band**: a shaded band shows the real range around the line. For long time ranges it comes straight from the long-term statistics.
 - **Time axis** with relative labels ("−6 h … now"), on hover or always
 - **Attributes** instead of the state, for example the target temperature of a thermostat
+- **Day & night** behind the card, with a starry night sky and sunrise / sunset times, computed locally from your Home Assistant location
+- **Event pins** on the time axis: window open, fireplace burning, heating on…, with duration bars
 - **Tap a legend entry** to temporarily hide its line
 - **Alert glow**: the whole card glows, pulses or blinks while a value reaches its alert threshold.
 - **Hide entities depending on their value**. A hidden entity is not shown and its history is not loaded at all.
@@ -40,6 +42,8 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 | Time axis | – | ✓ on hover or always |
 | Min/max band | – | ✓ from long-term statistics, no extra query |
 | Attributes instead of the state | – | ✓ e.g. a thermostat's target temperature |
+| Day/night shading with stars and sun times | – | ✓ computed locally, no extra query |
+| Event pins (window open, heating on, …) | – | ✓ one lightweight subscription |
 | Tooltip with time and value | – | ✓ mouse and touch |
 | Labels / icons at the end of the lines | – | ✓ |
 | Min / avg / max of the time range | – | ✓ `show_extrema` |
@@ -129,6 +133,12 @@ entities:
 | `alert_style` | `glow` | Effect while an entity is in alert: `glow` (pulsing), `blink`, `static` (steady glow) |
 | `alert_color` | theme error color | Color of the alert glow |
 | `unavailable_text` | HA's text | Text shown instead of "unavailable" / "unknown", e.g. `"–"`. The unit is hidden while there is no value. Can also be set per entity. |
+| `day_night` | `false` | Night shading over the full card height, twilight as a soft transition |
+| `stars` | `true` | Starry sky in the night areas |
+| `sun_times` | `true` | Sunrise / sunset markers |
+| `night_color` | dark blue | Colour of the night |
+| `night_opacity` | 55 (dark) / 13 (light) | Strength of the night shading in % |
+| `events` | – | Event pins, see below |
 | `text_color` | secondary text colour | Colour of the card name and the entity names (full and compact mode) |
 | `theme` | – | Theme for this card |
 | `tap_action` | `more-info` | Standard HA actions, plus `toggle-compact` |
@@ -173,6 +183,34 @@ Below the first stop and above the last stop, the first and last color are used.
 The editor shows a live preview bar of the scale and has presets: room temperature, outdoor temperature, heating, humidity, CO₂ and battery.
 
 By default the fill area uses the same height-based coloring as the line, which gives horizontal color bands. With `fill_gradient: time`, the fill below the line is colored along the time axis instead, so you can see at a glance *when* a threshold was exceeded.
+
+#### Day & night
+
+```yaml
+day_night: true     # night over the full card height, soft twilight
+stars: true         # starry sky (twinkles gently, off with reduced motion)
+sun_times: true     # sunrise / sunset markers
+```
+
+The sun's position is computed in the browser from the latitude and longitude of your Home Assistant installation, so this needs no request at all. In a light theme the night is a soft blue-grey with faint stars, and in a dark theme a deep blue.
+
+#### Event pins
+
+```yaml
+events:
+  - entity: binary_sensor.fireplace_burning   # state "on" is marked by default
+    icon: mdi:fireplace
+    name: Fireplace
+  - entity: binary_sensor.window_living_room
+    icon: mdi:window-open-variant
+  - entity: climate.living_room
+    state: heat                               # any state(s), e.g. [heat, cool]
+    color: "#e2533f"
+```
+
+Each event gets a pin with its icon at the start, a bar for its duration (own lane per event) and a dotted guide line into the graph. Tap a pin to open the entity. Hovering the graph lists the active events in the tooltip.
+
+**Suitable entities:** anything with discrete states, for example `binary_sensor` (window, door, motion, smoke), `switch`, `input_boolean`, `light`, or `climate` / `water_heater` / appliance states such as `heat` or `running`. For "fireplace burning" a template binary sensor (temperature > 40 °C) works well. All event entities share **one** history subscription with only real state changes, so the extra load is small.
 
 #### Alert
 
