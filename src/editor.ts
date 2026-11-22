@@ -234,8 +234,19 @@ export class BestNumberCardEditor extends LitElement {
                       grid([
                         { name: "stars", selector: { boolean: {} } },
                         { name: "sun_times", selector: { boolean: {} } },
-                        { name: "night_opacity", selector: { number: { mode: "slider", min: 5, max: 90, step: 1, unit_of_measurement: "%" } } },
                       ]),
+                      { name: "night_opacity", selector: { number: { mode: "slider", min: 5, max: 90, step: 1, unit_of_measurement: "%" } } },
+                      { name: "twilight_opacity", selector: { number: { mode: "slider", min: 0, max: 80, step: 1, unit_of_measurement: "%" } } },
+                      ...(c.day_color
+                        ? [{ name: "day_opacity", selector: { number: { mode: "slider", min: 0, max: 50, step: 1, unit_of_measurement: "%" } } }]
+                        : []),
+                      ...(c.stars !== false
+                        ? [
+                            { name: "stars_brightness", selector: { number: { mode: "slider", min: 10, max: 100, step: 1, unit_of_measurement: "%" } } },
+                            { name: "stars_twinkle", selector: { number: { mode: "slider", min: 0, max: 100, step: 1, unit_of_measurement: "%" } } },
+                            { name: "stars_density", selector: { number: { mode: "slider", min: 10, max: 300, step: 5, unit_of_measurement: "%" } } },
+                          ]
+                        : []),
                     ]
                   : []),
               ],
@@ -792,6 +803,23 @@ export class BestNumberCardEditor extends LitElement {
     </div>`;
   }
 
+  private _renderSkyColors(): TemplateResult {
+    const c = this._config!;
+    const field = (key: "night_color" | "dawn_color" | "dusk_color" | "day_color", placeholder: string) => html`<div class="field-row">
+      <span class="field-label">${this._l(`field.${key}`)}</span>
+      ${this._renderColorField(
+        key,
+        c[key],
+        (col) => this._emit(clean({ ...c, [key]: col }) as CardConfig),
+        this._l(`field.${key}`),
+        placeholder,
+      )}
+    </div>`;
+    return html`<div class="section-title">${this._l("editor.section.sky")}</div>
+      ${field("night_color", "#03061a")} ${field("dawn_color", "#ff8a3d")} ${field("dusk_color", "#d9467a")}
+      ${field("day_color", "")}`;
+  }
+
   private _renderAlertSection(): TemplateResult {
     const c = this._config!;
     const used = c.entities.some((e) => isSet(e.alert_above) || isSet(e.alert_below));
@@ -842,6 +870,7 @@ export class BestNumberCardEditor extends LitElement {
           "var(--secondary-text-color)",
         )}
       </div>
+      ${this._config.day_night && this._config.graph !== "none" ? this._renderSkyColors() : nothing}
       ${this._renderAlertSection()}
       <div class="section-title">${this._l("editor.section.entities")}</div>
       <div class="entities ${this._drag ? "is-dragging" : ""}">
