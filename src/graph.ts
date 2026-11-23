@@ -119,10 +119,15 @@ export function toPoints(
       seg = [];
       continue;
     }
-    if (detail === 2 && b.max[i] - b.min[i] > 0) {
+    // detail 2: the real minimum / maximum of the bucket – for raw data the extremes of the
+    // values, for long-term statistics their min / max columns (so peaks survive without
+    // loading the full history)
+    const lo = Number.isFinite(b.bandLo[i]) ? b.bandLo[i] : b.min[i];
+    const hi = Number.isFinite(b.bandHi[i]) ? b.bandHi[i] : b.max[i];
+    if (detail === 2 && hi - lo > 0) {
       const dx = step / 4;
-      const first = b.minFirst[i] ? b.min[i] : b.max[i];
-      const second = b.minFirst[i] ? b.max[i] : b.min[i];
+      const first = b.minFirst[i] ? lo : hi;
+      const second = b.minFirst[i] ? hi : lo;
       seg.push([Math.max(0, x - dx), y(first)], [Math.min(width, x + dx), y(second)]);
     } else {
       seg.push([x, y(b.mean[i])]);
