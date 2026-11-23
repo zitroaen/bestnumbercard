@@ -325,8 +325,8 @@ The card is built to put as little load as possible on Home Assistant and the br
 - **Windows up to `statistics_threshold` (6 h):** one `history/stream` subscription with `minimal_response`, `no_attributes` and `significant_changes_only`. HA sends the history once and then only pushes new values. There is no polling.
 - **Longer windows:** HA's **pre-aggregated long-term statistics** (5 min / hourly / daily) in one request, incl. min/max for the band. Raw history is only streamed for the minutes after the last statistics bucket. Entities without statistics fall back to raw history, and the editor warns you about that.
 - **Shared per entity:** cards that show the same entity share one subscription, one statistics request and the in-memory cache. When switching views, only the gap since the card was last visible is loaded. The cache lives only in the open tab, so it never becomes stale.
-- **Reconnects** (e.g. a tablet waking up) request only the gap, not the whole range.
-- **Long-running dashboards:** old points are dropped regularly, so memory stays flat. Background tabs don't redraw.
+- **Reconnects** (e.g. a tablet waking up) request only the gap, not the whole range. This also applies to the event pins.
+- **Long-running dashboards and wall tablets:** old points are dropped regularly, so memory stays flat. Background tabs don't redraw. Nothing runs at 60 frames per second: twinkling stars are a light timer that changes a few stars four times a second (paused while the card is off screen), and the alert glow pulses in a few steps per second.
 - **Rendering:** about one point per pixel, time-weighted, in O(n). Redraws are throttled to the time one pixel represents. Header values update immediately.
 - **Free extras:** day & night, min/max band, min/avg/max and the alert need no additional request. Event pins share one lightweight subscription.
 - Hidden entities and compact mode (without background graph) load no history.

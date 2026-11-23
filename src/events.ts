@@ -42,6 +42,7 @@ export class EventSource {
   private timer?: number;
   private disposed = false;
   private scheduled = false;
+  private wasDisconnected = false;
   version = 0;
 
   constructor(
@@ -59,7 +60,18 @@ export class EventSource {
 
   start(): void {
     if (!this.entities.length) return;
-    const from = Date.now() - this.hours * 3_600_000;
+    this.subscribe(Date.now() - this.hours * 3_600_000);
+    // after a lost connection only the gap is fetched (HA's automatic resubscribe would ask for
+    // everything since the ORIGINAL start – on a wall tablet running for days that grows every time)
+    const conn = this.hass.connection;
+    if (typeof conn?.addEventListener === "function") {
+      conn.addEventListener("disconnected", this.onDisconnected);
+      conn.addEventListener("ready", this.onReady);
+    }
+    this.timer = window.setInterval(() => this.prune(), 10 * 60_000);
+  }
+
+  private subscribe(from: number): void {
     this.hass.connection
       .subscribeMessage<{ states?: Record<string, { s: string; lu?: number; lc?: number }[]> }>(
         (msg) => this.onMessage(msg),
@@ -71,6 +83,7 @@ export class EventSource {
           no_attributes: true,
           significant_changes_only: true,
         },
+        { resubscribe: false },
       )
       .then(
         (unsub) => {
@@ -79,8 +92,22 @@ export class EventSource {
         },
         (err) => console.warn("best-number-card: event history failed", err),
       );
-    this.timer = window.setInterval(() => this.prune(), 10 * 60_000);
   }
+
+  private onDisconnected = () => {
+    // the subscription is gone with the connection
+    this.unsub = undefined;
+    this.wasDisconnected = true;
+  };
+
+  private onReady = () => {
+    if (!this.wasDisconnected || this.disposed) return;
+    this.wasDisconnected = false;
+    const windowStart = Date.now() - this.hours * 3_600_000;
+    let last = windowStart;
+    for (const d of this.data.values()) if (d.t.length) last = Math.max(last, d.t[d.t.length - 1]);
+    this.subscribe(last);
+  };
 
   private onMessage(msg: { states?: Record<string, { s: string; lu?: number; lc?: number }[]> }): void {
     if (!msg?.states) return;
@@ -127,6 +154,11 @@ export class EventSource {
   dispose(): void {
     this.disposed = true;
     clearInterval(this.timer);
+    const conn = this.hass.connection;
+    if (typeof conn?.removeEventListener === "function") {
+      conn.removeEventListener("disconnected", this.onDisconnected);
+      conn.removeEventListener("ready", this.onReady);
+    }
     this.unsub?.().catch(() => undefined);
   }
 }

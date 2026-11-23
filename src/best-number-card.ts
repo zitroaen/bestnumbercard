@@ -180,6 +180,11 @@ export class BestNumberCard extends LitElement {
   private _suppressClick = false;
   private _hideTimer?: number;
   private _dnCache?: { key: string; tpl: TemplateResult };
+  private _twinkleTimer?: number;
+  private _twinkleTpl?: TemplateResult;
+  private _twinkleStars: SVGElement[] = [];
+  private _io?: IntersectionObserver;
+  private _onScreen = true;
   private _ev?: EventSource;
   private _evKey = "";
   /** true while the card animates between compact and full mode */
@@ -247,6 +252,9 @@ export class BestNumberCard extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._stopTwinkle();
+    this._io?.disconnect();
+    this._io = undefined;
     document.removeEventListener("visibilitychange", this._onVisibility);
     this._disposeDataSource();
     this._ro?.disconnect();
@@ -284,6 +292,7 @@ export class BestNumberCard extends LitElement {
 
   protected updated(changed: Map<string, unknown>): void {
     this._updateAlert();
+    this._syncTwinkle();
     if (changed.has("_config") || changed.has("_compact")) this._measureRoom();
     const el = this.renderRoot.querySelector(".graph");
     if (el !== this._graphEl) {
@@ -300,6 +309,44 @@ export class BestNumberCard extends LitElement {
         this._ro.observe(el);
       }
     }
+  }
+
+  /**
+   * Twinkling stars: instead of a CSS animation per star (which makes the browser redraw the
+   * card 60 times a second – heavy on wall tablets), a light timer changes the brightness of a
+   * few random stars four times a second. Only these tiny spots are redrawn, and nothing runs
+   * while the card is off screen or the tab is hidden.
+   */
+  private _syncTwinkle(): void {
+    const tpl = this._dnCache?.tpl;
+    if (tpl === this._twinkleTpl) return;
+    this._twinkleTpl = tpl;
+    this._twinkleStars = [...this.renderRoot.querySelectorAll<SVGElement>(".daynight .star.tw")];
+    const reduced = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (!this._twinkleStars.length || reduced) {
+      this._stopTwinkle();
+      return;
+    }
+    if (!this._io && typeof IntersectionObserver === "function") {
+      this._io = new IntersectionObserver((entries) => (this._onScreen = entries[entries.length - 1].isIntersecting));
+      this._io.observe(this);
+    }
+    this._twinkleTimer ??= window.setInterval(() => {
+      if (!this._onScreen || document.visibilityState === "hidden") return;
+      const stars = this._twinkleStars;
+      const k = Math.max(1, Math.round(stars.length * 0.15));
+      for (let i = 0; i < k; i++) {
+        const el = stars[Math.floor(Math.random() * stars.length)];
+        el.style.opacity = (0.3 + Math.random() * 0.7).toFixed(2);
+      }
+    }, 250);
+  }
+
+  private _stopTwinkle(): void {
+    clearInterval(this._twinkleTimer);
+    this._twinkleTimer = undefined;
+    this._twinkleTpl = undefined;
+    this._twinkleStars = [];
   }
 
   /** Only needed with peak_overflow: the distance from the card's top edge to the graph. */
@@ -1269,8 +1316,6 @@ export class BestNumberCard extends LitElement {
         const o = Math.min(1, (0.3 + 0.7 * mag) * brightness * fade * (dark ? 1 : 0.9));
         const color = tints[Math.floor(rnd() * tints.length)];
         const tw = rnd() < twinkle * (0.3 + mag);
-        const dur = 3 + rnd() * 4;
-        const anim = tw ? `animation-duration:${dur.toFixed(1)}s;animation-delay:${(-rnd() * dur).toFixed(1)}s` : "";
         const cy = `${(yf * 100).toFixed(2)}%`;
         if (style !== "dot" && mag > 0.5) {
           glows.push(svg`<circle cx=${x.toFixed(1)} cy=${cy} r=${(r * 4.5).toFixed(1)} fill=${`url(#${id}-glow)`} opacity=${(o * 0.7).toFixed(2)}></circle>`);
@@ -1279,11 +1324,11 @@ export class BestNumberCard extends LitElement {
           // small four-pointed sparkle for the brightest stars
           const L = r * 3.2;
           const d = `M${-L},0Q0,0 0,${-L}Q0,0 ${L},0Q0,0 0,${L}Q0,0 ${-L},0Z`;
-          dots.push(svg`<svg x=${x.toFixed(1)} y=${cy} overflow="visible"><path class=${tw ? "star tw" : "star"} d=${d} fill=${color} fill-opacity=${o.toFixed(2)} style=${anim}></path></svg>`);
+          dots.push(svg`<svg x=${x.toFixed(1)} y=${cy} overflow="visible"><path class=${tw ? "star tw" : "star"} d=${d} fill=${color} fill-opacity=${o.toFixed(2)}></path></svg>`);
           continue;
         }
         dots.push(
-          svg`<circle class=${tw ? "star tw" : "star"} cx=${x.toFixed(1)} cy=${cy} r=${r.toFixed(2)} fill=${color} fill-opacity=${o.toFixed(2)} style=${anim}></circle>`,
+          svg`<circle class=${tw ? "star tw" : "star"} cx=${x.toFixed(1)} cy=${cy} r=${r.toFixed(2)} fill=${color} fill-opacity=${o.toFixed(2)}></circle>`,
         );
       }
       const maskStops = compact(smp.map((p) => [p.o, p.n] as [number, number]), (a, b) => a[1] === b[1]);
@@ -1567,7 +1612,8 @@ export class BestNumberCard extends LitElement {
         0 0 0 2px var(--c),
         0 0 18px 4px color-mix(in srgb, var(--c) 55%, transparent),
         inset 0 0 28px color-mix(in srgb, var(--c) 28%, transparent);
-      animation: bnc-glow 2s ease-in-out infinite;
+      /* a few steps per second instead of 60 frames: costs (almost) nothing on wall tablets */
+      animation: bnc-glow 2.4s steps(12) infinite;
     }
     :host([alert-style="blink"])::after {
       animation: bnc-blink 1s steps(1, end) infinite;
@@ -2011,29 +2057,6 @@ export class BestNumberCard extends LitElement {
       position: absolute;
       left: 0;
       top: 0;
-    }
-    .star.tw {
-      animation: bnc-twinkle 4s ease-in-out infinite;
-    }
-    .star.tw {
-      transform-box: fill-box;
-      transform-origin: center;
-    }
-    @keyframes bnc-twinkle {
-      0%,
-      100% {
-        opacity: 1;
-        transform: scale(1);
-      }
-      50% {
-        opacity: 0.35;
-        transform: scale(0.8);
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .star.tw {
-        animation: none;
-      }
     }
     .sun-mark {
       position: absolute;
