@@ -162,7 +162,10 @@ export class BestNumberCard extends LitElement {
   private _cfgVersion = 0;
   private _ds?: DataSource;
   private _dsKey = "";
-  private _dsStarted = 0;
+  /** redraw without throttling until then (right after loading starts or the view changes) */
+  private _fastUntil = 0;
+  /** when the pending throttled redraw will run */
+  private _tickDue = 0;
   private _lastTick = 0;
   private _tickTimer?: number;
   private _ticker?: number;
@@ -360,7 +363,7 @@ export class BestNumberCard extends LitElement {
       detail,
       onChange: () => this._scheduleTick(),
     });
-    this._dsStarted = Date.now();
+    this._fastUntil = Date.now() + 5_000;
     this._ds.start().catch((err) => console.warn("best-number-card:", err));
     // let the graph scroll with time even if no new values arrive
     const pxMs = (this._hours * 3_600_000) / Math.max(this._width || 400, 100);
@@ -385,6 +388,8 @@ export class BestNumberCard extends LitElement {
     if (!key) return;
     this._ev = new EventSource(this.hass, ids, this._hours, () => this._scheduleTick());
     this._ev.start();
+    // the first answer must show up right away, not after the throttled interval
+    this._fastUntil = Date.now() + 5_000;
   }
 
   private _disposeDataSource(): void {
@@ -406,16 +411,22 @@ export class BestNumberCard extends LitElement {
   /** Throttled graph refresh: dense data must not cause a re-render for every single value. */
   private _scheduleTick(): void {
     // nothing to draw in a background tab – catch up when it becomes visible again
-    if (this._tickTimer !== undefined || document.visibilityState === "hidden") return;
+    if (document.visibilityState === "hidden") return;
     const now = Date.now();
     const bucketMs = (this._hours * 3_600_000) / Math.max(this._width || 400, 100);
-    const minInterval = now - this._dsStarted < 5_000 ? 100 : Math.min(Math.max(bucketMs, 1_000), 30_000);
-    const delay = Math.max(0, this._lastTick + minInterval - now);
+    const minInterval = now < this._fastUntil ? 100 : Math.min(Math.max(bucketMs, 1_000), 30_000);
+    const due = Math.max(now, this._lastTick + minInterval);
+    if (this._tickTimer !== undefined) {
+      // a slow redraw is already planned – only bring it forward if this one is due earlier
+      if (due >= this._tickDue) return;
+      clearTimeout(this._tickTimer);
+    }
+    this._tickDue = due;
     this._tickTimer = window.setTimeout(() => {
       this._tickTimer = undefined;
       this._lastTick = Date.now();
       this._tick++;
-    }, delay);
+    }, due - now);
   }
 
   // ---------------------------------------------------------------- helpers
