@@ -95,3 +95,14 @@ test("scaleY reports the value at the top and the highest drawable value", () =>
   assert.equal(squeezed.topValue, 100);
   assert.equal(squeezed.maxValue, 1100);
 });
+
+test("detail 2 keeps the peaks of long-term statistics (their min / max columns)", () => {
+  // three 5-minute buckets: mean 300, but one had a short spike to 3000
+  const data = { t: [0, 300, 600], v: [300, 320, 310], lo: [250, 200, 260], hi: [400, 3000, 380] };
+  const b = aggregate(data, 0, 900, 3);
+  const pts = toPoints(b, 2, 100, (v) => -v).flat();
+  assert.ok(pts.some(([, y]) => y === -3000), "the spike is drawn");
+  // detail 1 stays the smooth average
+  const smooth = toPoints(b, 1, 100, (v) => -v).flat();
+  assert.ok(!smooth.some(([, y]) => y === -3000));
+});

@@ -727,7 +727,8 @@ export class BestNumberCard extends LitElement {
       const off = this._off.has(this._sid(e));
       if (!off || !groups.has(g)) {
         // with a band the scale must also fit the real minimum / maximum
-        const [lo, hi] = this._bandOn(e) ? bandRange(b) : dataRange([b]);
+        // with a band or peak-preserving lines the scale must fit the real minimum / maximum
+        const [lo, hi] = this._bandOn(e) || detailFor(e) === 2 ? bandRange(b) : dataRange([b]);
         if (!off) {
           cur.lo = Math.min(cur.lo, lo);
           cur.hi = Math.max(cur.hi, hi);

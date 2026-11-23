@@ -147,7 +147,7 @@ entities:
 |---|---|---|
 | `graph` | `line` | `line` or `none` |
 | `hours_to_show` | `24` | Time window |
-| `detail` | `1` | `1` = smooth average, `2` = every peak (min/max per pixel, no smoothing) |
+| `detail` | `1` | `1` = smooth average, `2` = every peak (min/max per pixel, no smoothing). With long-term statistics the peaks come from their min/max columns in 5-minute steps, so you usually don't need `raw_history`. |
 | `height` | auto | Graph height in px. By default the graph takes the free height of the card, otherwise the height of the sensor card's graph. |
 | `limits` | – | `{min, max}` for all scales |
 | `smoothing` | `true` | Smooth curves |
@@ -230,7 +230,7 @@ entities:
 | `fill` / `fill_gradient` | Fill the area under the line (default: only with a single series) / `value` or `time` |
 | `band` / `show_extrema` / `peak_overflow` | Min/max band / min-avg-max / peaks into the header for this entity (override the card options) |
 | `line_width` | Line width in px |
-| `raw_history` | Always load the **full raw history**, so every short peak is visible. This puts more load on the system. For long ranges the statistics are shown as a quick preview until the details have arrived. |
+| `raw_history` | Always load the **full raw history**. Usually not needed: with `detail: 2` the peaks are already drawn from the statistics' min/max (5-minute steps). Only for peaks shorter than 5 minutes that must be exact. This puts much more load on HA and the display (e.g. 8,600 values per day for a sensor every 10 s instead of 288 statistics rows). For long ranges the statistics are shown as a quick preview until the details have arrived. |
 | `show_value` / `show_graph` | Show this entity in the header / in the graph |
 | `hide_below` / `hide_above` / `hide_unavailable` | Hide the entity completely (and don't load it) while its value is below / above a limit, or while it is unavailable |
 | `alert_above` / `alert_below` | The whole card glows while the value is at or above / at or below this value |
