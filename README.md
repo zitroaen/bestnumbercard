@@ -190,7 +190,8 @@ entities:
 | Option | Default | Description |
 |---|---|---|
 | `events` | – | List of event pins |
-| `event_lines` | `true` | Dotted vertical lines from the pins into the graph |
+| `event_lines` | `true` | Dotted vertical lines from the start of each event into the graph |
+| `event_pins` | `true` | Pin icons at the start of the events. `false`: only the bars (and lines) remain. |
 
 **Compact mode**
 
@@ -288,8 +289,9 @@ events:
 | `state` | State(s) to mark, default `on`. Several as a list, or comma-separated in the editor. |
 | `name` / `icon` / `color` | Overrides for tooltip, pin icon and colour |
 | `line` | Vertical line for this event (overrides `event_lines`) |
+| `pin` | Pin icon for this event (overrides `event_pins`) |
 
-Each event gets a pin with its icon at the start, a bar for its duration (an own lane per event) and a dotted guide line into the graph. When events follow each other closely, only every pin with enough room (about 44 px) is drawn, together with its guide line; the others keep just their bar, so the row stays calm. Tapping a pin opens the entity, and the tooltip lists the events active at that time.
+Each event gets a pin with its icon at the start, a bar for its duration (an own lane per event) and a dotted guide line into the graph. When events follow each other closely, a pin is only drawn where there is enough room (about 44 px) to the previous one; the others keep their bar and guide line, so the row stays calm. Pins can be switched off for the card (`event_pins: false`) or per event (`pin: false`). Tapping a pin opens the entity, and the tooltip lists the events active at that time.
 
 **Suitable entities:** anything with discrete states, for example `binary_sensor` (window, door, motion, smoke), `switch`, `input_boolean`, `light`, or `climate` / `water_heater` / appliance states such as `heat` or `running`. For "fireplace burning", a template binary sensor (temperature > 40 °C) works well. All event entities share **one** history subscription with only real state changes, so the extra load is small.
 

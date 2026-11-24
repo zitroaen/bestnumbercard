@@ -77,8 +77,10 @@ interface EventMark {
   x1: number;
   x2: number;
   color: string;
-  /** false when the start lies before the window or the pin would crowd its neighbour (only the bar is drawn) */
+  /** false when the start lies before the window (only the bar is drawn) */
   pin: boolean;
+  /** the pin icon is drawn (pins on, start in the window, enough room to the previous pin) */
+  showPin: boolean;
   /** own lane per configured event, so overlapping bars don't mix */
   lane: number;
 }
@@ -785,18 +787,20 @@ export class BestNumberCard extends LitElement {
             x2: Math.min(plotW, xOf(iv.to)),
             color: ec.color || EVENT_COLORS[i % EVENT_COLORS.length],
             pin: iv.from >= start,
+            showPin: false,
             lane: i,
           });
         }
       });
     }
 
-    // keep the row calm: a pin (and its guide line) needs some room, closer events only show their bar
+    // pins (optional): keep the row calm – a pin needs some room, closer events only show their
+    // bar (and their guide line)
     let lastPin = -Infinity;
     for (const ev of [...events].sort((a, b) => a.x1 - b.x1)) {
-      if (!ev.pin) continue;
-      if (ev.x1 - lastPin < 44) ev.pin = false;
-      else lastPin = ev.x1;
+      if (!ev.pin || (ev.cfg.pin ?? cfg.event_pins) === false || ev.x1 - lastPin < 44) continue;
+      ev.showPin = true;
+      lastPin = ev.x1;
     }
 
     let hasData = false;
@@ -1304,7 +1308,7 @@ export class BestNumberCard extends LitElement {
     const style = cfg.stars_style ?? "glow";
     if (stars && night.rect !== nothing && brightness > 0 && density > 0) {
       const rnd = seededRandom(parseInt(hash(this._uid + m.width), 36));
-      const count = Math.round(m.width * (top ? 0.14 : 0.18) * density);
+      const count = Math.round(m.width * (top ? 0.24 : 0.28) * density);
       // light theme: darker stars, otherwise they disappear on the bright card
       const tints = cfg.stars_color
         ? [cfg.stars_color]
@@ -1319,23 +1323,23 @@ export class BestNumberCard extends LitElement {
       for (let i = 0; i < count; i++) {
         const mag = Math.pow(rnd(), 3.2); // 0 = faint … 1 = bright, most stars are faint
         const x = rnd() * m.width;
-        const yf = top ? Math.pow(rnd(), 1.5) * 0.55 : Math.pow(rnd(), 1.4);
+        const yf = top ? Math.pow(rnd(), 1.5) * 0.72 : Math.pow(rnd(), 1.4);
         const colorPick = rnd();
         const twPick = rnd();
-        const fade = top ? (yf < 0.15 ? 1 : Math.max(0, 1 - (yf - 0.15) / 0.4)) : 1 - yf * 0.6;
+        const fade = top ? (yf < 0.2 ? 1 : Math.max(0, 1 - (yf - 0.2) / 0.52)) : 1 - yf * 0.6;
         const night = nightAt(x);
         // stars outside the night are not created at all (fewer elements)
         if (night * fade < 0.02) continue;
-        const r = (dark ? 0.3 : 0.45) + mag * 1.3;
+        const r = (dark ? 0.35 : 0.5) + mag * 1.7;
         const o = Math.min(1, (0.3 + 0.7 * mag) * brightness * fade * night * (dark ? 1 : 0.9));
         const color = tints[Math.floor(colorPick * tints.length)];
         const tw = twPick < twinkle * (0.3 + mag);
         const cy = `${(yf * 100).toFixed(2)}%`;
-        // only the few brightest stars (~5 %) get a glow / sparkle – calm, like a real sky
-        if (style !== "dot" && mag > 0.85) {
-          glows.push(svg`<circle cx=${x.toFixed(1)} cy=${cy} r=${(r * 3).toFixed(1)} fill=${`url(#${id}-glow)`} opacity=${(o * 0.45).toFixed(2)}></circle>`);
+        // the brighter stars get a soft glow (or a sparkle)
+        if (style !== "dot" && mag > 0.5) {
+          glows.push(svg`<circle cx=${x.toFixed(1)} cy=${cy} r=${(r * 4.5).toFixed(1)} fill=${`url(#${id}-glow)`} opacity=${(o * 0.7).toFixed(2)}></circle>`);
         }
-        if (style === "sparkle" && mag > 0.85) {
+        if (style === "sparkle" && mag > 0.62) {
           // small four-pointed sparkle for the brightest stars
           const L = r * 3.2;
           const d = `M${-L},0Q0,0 0,${-L}Q0,0 ${L},0Q0,0 0,${L}Q0,0 ${-L},0Z`;
@@ -1411,7 +1415,7 @@ export class BestNumberCard extends LitElement {
   /** pins (html, so HA icons can be used); overlapping pins are left out, their bars stay */
   private _renderEventPins(m: GraphModel): TemplateResult | typeof nothing {
     if (!m.events.length) return nothing;
-    const pins = m.events.filter((e) => e.pin);
+    const pins = m.events.filter((e) => e.showPin);
     return html`${pins.map((ev) => {
       const st = this.hass?.states[ev.cfg.entity];
       return html`<div
