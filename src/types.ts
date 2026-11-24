@@ -119,6 +119,8 @@ export interface EventConfig {
   color?: string;
   /** dotted vertical line into the graph (overrides the card option) */
   line?: boolean;
+  /** show the pin icon for this event (overrides event_pins) */
+  pin?: boolean;
 }
 
 export interface CardConfig {
@@ -155,6 +157,8 @@ export interface CardConfig {
   events?: EventConfig[];
   /** Dotted vertical lines from the event pins into the graph (default true). */
   event_lines?: boolean;
+  /** pin icons at the start of the events (default true); the bars always stay */
+  event_pins?: boolean;
   /** Day/night shading behind the card (computed from the location in HA). */
   day_night?: boolean;
   /** Stars in the night areas (default true). */
