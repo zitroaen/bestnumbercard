@@ -289,7 +289,7 @@ events:
 | `name` / `icon` / `color` | Overrides for tooltip, pin icon and colour |
 | `line` | Vertical line for this event (overrides `event_lines`) |
 
-Each event gets a pin with its icon at the start, a bar for its duration (an own lane per event) and a dotted guide line into the graph. Tapping a pin opens the entity, and the tooltip lists the events active at that time.
+Each event gets a pin with its icon at the start, a bar for its duration (an own lane per event) and a dotted guide line into the graph. When events follow each other closely, only every pin with enough room (about 44 px) is drawn, together with its guide line; the others keep just their bar, so the row stays calm. Tapping a pin opens the entity, and the tooltip lists the events active at that time.
 
 **Suitable entities:** anything with discrete states, for example `binary_sensor` (window, door, motion, smoke), `switch`, `input_boolean`, `light`, or `climate` / `water_heater` / appliance states such as `heat` or `running`. For "fireplace burning", a template binary sensor (temperature > 40 °C) works well. All event entities share **one** history subscription with only real state changes, so the extra load is small.
 
@@ -326,7 +326,7 @@ The card is built to put as little load as possible on Home Assistant and the br
 - **Longer windows:** HA's **pre-aggregated long-term statistics** (5 min / hourly / daily) in one request, incl. min/max for the band. Raw history is only streamed for the minutes after the last statistics bucket. Entities without statistics fall back to raw history, and the editor warns you about that.
 - **Shared per entity:** cards that show the same entity share one subscription, one statistics request and the in-memory cache. When switching views, only the gap since the card was last visible is loaded. The cache lives only in the open tab, so it never becomes stale.
 - **Reconnects** (e.g. a tablet waking up) request only the gap, not the whole range. This also applies to the event pins.
-- **Long-running dashboards and wall tablets:** old points are dropped regularly, so memory stays flat. Background tabs don't redraw. Nothing runs at 60 frames per second: twinkling stars are a light timer that changes a few stars four times a second (paused while the card is off screen), and the alert glow pulses in a few steps per second.
+- **Long-running dashboards and wall tablets:** old points are dropped regularly, so memory stays flat. Background tabs don't redraw. Nothing runs at 60 frames per second: twinkling stars are a light timer that changes a few stars twice a second (paused while the card is off screen), and the star field uses no SVG masks, and the alert glow pulses in a few steps per second.
 - **Rendering:** about one point per pixel, time-weighted, in O(n). Redraws are throttled to the time one pixel represents. Header values update immediately.
 - **Free extras:** day & night, min/max band, min/avg/max and the alert need no additional request. Event pins share one lightweight subscription.
 - Hidden entities and compact mode (without background graph) load no history.

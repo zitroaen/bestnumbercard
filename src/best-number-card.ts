@@ -77,7 +77,7 @@ interface EventMark {
   x1: number;
   x2: number;
   color: string;
-  /** false when the start lies before the window (only the bar is drawn) */
+  /** false when the start lies before the window or the pin would crowd its neighbour (only the bar is drawn) */
   pin: boolean;
   /** own lane per configured event, so overlapping bars don't mix */
   lane: number;
@@ -314,7 +314,7 @@ export class BestNumberCard extends LitElement {
   /**
    * Twinkling stars: instead of a CSS animation per star (which makes the browser redraw the
    * card 60 times a second – heavy on wall tablets), a light timer changes the brightness of a
-   * few random stars four times a second. Only these tiny spots are redrawn, and nothing runs
+   * few random stars twice a second. Only these tiny spots are redrawn, and nothing runs
    * while the card is off screen or the tab is hidden.
    */
   private _syncTwinkle(): void {
@@ -334,12 +334,13 @@ export class BestNumberCard extends LitElement {
     this._twinkleTimer ??= window.setInterval(() => {
       if (!this._onScreen || document.visibilityState === "hidden") return;
       const stars = this._twinkleStars;
-      const k = Math.max(1, Math.round(stars.length * 0.15));
+      // a few stars at a time, small steps in brightness: a calm, gentle twinkle
+      const k = Math.max(1, Math.round(stars.length * 0.05));
       for (let i = 0; i < k; i++) {
         const el = stars[Math.floor(Math.random() * stars.length)];
-        el.style.opacity = (0.3 + Math.random() * 0.7).toFixed(2);
+        el.style.opacity = (0.55 + Math.random() * 0.45).toFixed(2);
       }
-    }, 250);
+    }, 500);
   }
 
   private _stopTwinkle(): void {
@@ -788,6 +789,14 @@ export class BestNumberCard extends LitElement {
           });
         }
       });
+    }
+
+    // keep the row calm: a pin (and its guide line) needs some room, closer events only show their bar
+    let lastPin = -Infinity;
+    for (const ev of [...events].sort((a, b) => a.x1 - b.x1)) {
+      if (!ev.pin) continue;
+      if (ev.x1 - lastPin < 44) ev.pin = false;
+      else lastPin = ev.x1;
     }
 
     let hasData = false;
@@ -1281,11 +1290,7 @@ export class BestNumberCard extends LitElement {
       ? svg`<linearGradient id=${`${id}-v`} x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stop-color="#fff"></stop><stop offset="1" stop-color="#fff" stop-opacity="0.5"></stop>
           </linearGradient>
-          <mask id=${`${id}-vm`}><rect width=${m.width} height="100%" fill=${`url(#${id}-v)`}></rect></mask>
-          <linearGradient id=${`${id}-sv`} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0.2" stop-color="#fff"></stop><stop offset="0.72" stop-color="#fff" stop-opacity="0"></stop>
-          </linearGradient>
-          <mask id=${`${id}-svm`}><rect width=${m.width} height="100%" fill=${`url(#${id}-sv)`}></rect></mask>`
+          <mask id=${`${id}-vm`}><rect width=${m.width} height="100%" fill=${`url(#${id}-v)`}></rect></mask>`
       : nothing;
     const nightRect = top && night.rect !== nothing ? svg`<g mask=${`url(#${id}-vm)`}>${night.rect}</g>` : night.rect;
 
@@ -1299,7 +1304,7 @@ export class BestNumberCard extends LitElement {
     const style = cfg.stars_style ?? "glow";
     if (stars && night.rect !== nothing && brightness > 0 && density > 0) {
       const rnd = seededRandom(parseInt(hash(this._uid + m.width), 36));
-      const count = Math.round(m.width * (top ? 0.24 : 0.28) * density);
+      const count = Math.round(m.width * (top ? 0.14 : 0.18) * density);
       // light theme: darker stars, otherwise they disappear on the bright card
       const tints = cfg.stars_color
         ? [cfg.stars_color]
@@ -1308,20 +1313,29 @@ export class BestNumberCard extends LitElement {
           : ["#26367a", "#26367a", "#3b4f9e", "#45376f"];
       const dots = [];
       const glows = [];
+      // no SVG masks (expensive to redraw on weak devices): each star gets its brightness
+      // directly from how much night there is at its position and how high it is
+      const nightAt = (x: number) => smp[Math.min(cols, Math.max(0, Math.round((x / m.plotW) * cols)))].n;
       for (let i = 0; i < count; i++) {
         const mag = Math.pow(rnd(), 3.2); // 0 = faint … 1 = bright, most stars are faint
         const x = rnd() * m.width;
-        const yf = top ? Math.pow(rnd(), 1.5) * 0.72 : Math.pow(rnd(), 1.4);
-        const fade = top ? 1 : 1 - yf * 0.6;
-        const r = (dark ? 0.35 : 0.5) + mag * 1.7;
-        const o = Math.min(1, (0.3 + 0.7 * mag) * brightness * fade * (dark ? 1 : 0.9));
-        const color = tints[Math.floor(rnd() * tints.length)];
-        const tw = rnd() < twinkle * (0.3 + mag);
+        const yf = top ? Math.pow(rnd(), 1.5) * 0.55 : Math.pow(rnd(), 1.4);
+        const colorPick = rnd();
+        const twPick = rnd();
+        const fade = top ? (yf < 0.15 ? 1 : Math.max(0, 1 - (yf - 0.15) / 0.4)) : 1 - yf * 0.6;
+        const night = nightAt(x);
+        // stars outside the night are not created at all (fewer elements)
+        if (night * fade < 0.02) continue;
+        const r = (dark ? 0.3 : 0.45) + mag * 1.3;
+        const o = Math.min(1, (0.3 + 0.7 * mag) * brightness * fade * night * (dark ? 1 : 0.9));
+        const color = tints[Math.floor(colorPick * tints.length)];
+        const tw = twPick < twinkle * (0.3 + mag);
         const cy = `${(yf * 100).toFixed(2)}%`;
-        if (style !== "dot" && mag > 0.5) {
-          glows.push(svg`<circle cx=${x.toFixed(1)} cy=${cy} r=${(r * 4.5).toFixed(1)} fill=${`url(#${id}-glow)`} opacity=${(o * 0.7).toFixed(2)}></circle>`);
+        // only the few brightest stars (~5 %) get a glow / sparkle – calm, like a real sky
+        if (style !== "dot" && mag > 0.85) {
+          glows.push(svg`<circle cx=${x.toFixed(1)} cy=${cy} r=${(r * 3).toFixed(1)} fill=${`url(#${id}-glow)`} opacity=${(o * 0.45).toFixed(2)}></circle>`);
         }
-        if (style === "sparkle" && mag > 0.62) {
+        if (style === "sparkle" && mag > 0.85) {
           // small four-pointed sparkle for the brightest stars
           const L = r * 3.2;
           const d = `M${-L},0Q0,0 0,${-L}Q0,0 ${L},0Q0,0 0,${L}Q0,0 ${-L},0Z`;
@@ -1332,17 +1346,12 @@ export class BestNumberCard extends LitElement {
           svg`<circle class=${tw ? "star tw" : "star"} cx=${x.toFixed(1)} cy=${cy} r=${r.toFixed(2)} fill=${color} fill-opacity=${o.toFixed(2)}></circle>`,
         );
       }
-      const maskStops = compact(smp.map((p) => [p.o, p.n] as [number, number]), (a, b) => a[1] === b[1]);
-      starMask = svg`<linearGradient id=${`${id}-w`} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">
-          ${maskStops.map(([o, n]) => svg`<stop offset=${o} stop-color="#fff" stop-opacity=${n.toFixed(3)}></stop>`)}</linearGradient>
-        <mask id=${`${id}-m`}><rect width=${m.width} height="100%" fill=${`url(#${id}-w)`}></rect></mask>
-        <radialGradient id=${`${id}-glow`}>
+      starMask = svg`<radialGradient id=${`${id}-glow`}>
           <stop offset="0" stop-color=${tints[0]} stop-opacity="0.8"></stop>
           <stop offset="0.3" stop-color=${tints[0]} stop-opacity="0.25"></stop>
           <stop offset="1" stop-color=${tints[0]} stop-opacity="0"></stop>
         </radialGradient>`;
-      const field = svg`${glows}${dots}`;
-      starField = svg`<g mask=${`url(#${id}-m)`}>${top ? svg`<g mask=${`url(#${id}-svm)`}>${field}</g>` : field}</g>`;
+      starField = svg`${glows}${dots}`;
     }
     const tpl = html`<div class="daynight" aria-hidden="true">
       <svg width=${m.width} height="100%">
@@ -1402,15 +1411,7 @@ export class BestNumberCard extends LitElement {
   /** pins (html, so HA icons can be used); overlapping pins are left out, their bars stay */
   private _renderEventPins(m: GraphModel): TemplateResult | typeof nothing {
     if (!m.events.length) return nothing;
-    let last = -Infinity;
-    const pins = m.events
-      .filter((e) => e.pin)
-      .sort((a, b) => a.x1 - b.x1)
-      .filter((e) => {
-        if (e.x1 - last < 22) return false;
-        last = e.x1;
-        return true;
-      });
+    const pins = m.events.filter((e) => e.pin);
     return html`${pins.map((ev) => {
       const st = this.hass?.states[ev.cfg.entity];
       return html`<div
@@ -2027,17 +2028,17 @@ export class BestNumberCard extends LitElement {
     .ev-pin {
       position: absolute;
       transform: translate(-50%, 50%);
-      width: 20px;
-      height: 20px;
+      width: 17px;
+      height: 17px;
       box-sizing: border-box;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       color: var(--c);
-      background: color-mix(in srgb, var(--c) 22%, var(--card-background-color, #fff));
-      border: 1.5px solid var(--c);
-      --mdc-icon-size: 12px;
+      background: color-mix(in srgb, var(--c) 18%, var(--card-background-color, #fff));
+      border: 1px solid color-mix(in srgb, var(--c) 70%, transparent);
+      --mdc-icon-size: 11px;
       pointer-events: auto;
       z-index: 1;
     }
