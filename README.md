@@ -23,6 +23,7 @@ A Home Assistant dashboard card that looks and behaves like the built-in **senso
 - **Event pins** on the time axis: window open, fireplace burning, heating on…, with duration bars
 - **Time axis** ("−6 h … now") and **y-axis labels**, on hover or always
 - **Tooltip** with all values and active events. On phones, **swipe across the graph**.
+- **Scroll & pinch-to-zoom** (optional): drag back in time and zoom in with two fingers, light thanks to 5-minute statistics
 
 **Values**
 - **All values** in the header, or only the first one (like the sensor card)
@@ -159,7 +160,9 @@ entities:
 | `end_labels` | `none` | Label at the end of each line: `none`, `value`, `icon`, `icon_value` |
 | `y_axis` / `x_axis` | `hover` | Axis labels: `hover`, `always`, `none` |
 | `show_thresholds` | `false` | Dashed lines with labels at the jumps of the color scales |
-| `tooltip` | `true` | Tooltip on hover. On touch screens: swipe horizontally across the graph. |
+| `tooltip` | `true` | Tooltip on hover. On touch screens: swipe horizontally across the graph (with `zoom`: press and hold, then slide). |
+| `zoom` | `false` | Scroll back in time and zoom, see [Scroll & zoom](#scroll--zoom) |
+| `zoom_hours` | `168` | With `zoom`: how far back you can scroll (hours). That much history is loaded. |
 | `legend_toggle` | `true` | Tap an entity name to hide or show its line |
 
 **Data loading**
@@ -294,6 +297,21 @@ events:
 Each event gets a pin with its icon at the start, a bar for its duration (an own lane per event) and a dotted guide line into the graph. When events follow each other closely, a pin is only drawn where there is enough room (about 44 px) to the previous one; the others keep their bar and guide line, so the row stays calm. Pins can be switched off for the card (`event_pins: false`) or per event (`pin: false`). Tapping a pin opens the entity, and the tooltip lists the events active at that time.
 
 **Suitable entities:** anything with discrete states, for example `binary_sensor` (window, door, motion, smoke), `switch`, `input_boolean`, `light`, or `climate` / `water_heater` / appliance states such as `heat` or `running`. For "fireplace burning", a template binary sensor (temperature > 40 °C) works well. All event entities share **one** history subscription with only real state changes, so the extra load is small.
+
+### Scroll & zoom
+
+With `zoom: true` the graph can be explored:
+
+| Gesture | Touch | Mouse / trackpad |
+|---|---|---|
+| Scroll back and forth | drag with one finger | drag |
+| Zoom | pinch with two fingers | Ctrl + mouse wheel, or pinch on the trackpad |
+| Tooltip | press and hold, then slide | hover |
+| Back to the live view | tap **↻ Now** | click **↻ Now** |
+
+The visible range starts as `hours_to_show`. You can zoom in down to 10 minutes and out to `zoom_hours`. While you look at the past, the time labels stay visible, and the end labels are hidden because they show the current values. Vertical swipes still scroll the dashboard.
+
+To keep it light, the whole scrollable range (`zoom_hours`, default 7 days) is loaded once as **5-minute statistics**: about 2,000 rows per entity for 7 days. HA keeps these for 10 days by default; for longer ranges, hourly statistics are used. Entities with `raw_history` load the full raw history for the whole range, which is much heavier.
 
 ### Alert
 

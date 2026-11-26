@@ -118,6 +118,8 @@ export class BestNumberCardEditor extends LitElement {
       band: false,
       peak_overflow: false,
       peak_percentile: 95,
+      zoom: false,
+      zoom_hours: 168,
       show_thresholds: false,
       show_extrema: false,
       legend_toggle: true,
@@ -186,6 +188,10 @@ export class BestNumberCardEditor extends LitElement {
                 { name: "x_axis", selector: select(h, ["hover", "always", "none"]) },
               ]),
               { name: "end_labels", selector: select(h, ["none", "value", "icon", "icon_value"]) },
+              { name: "zoom", selector: { boolean: {} } },
+              ...(c.zoom
+                ? [{ name: "zoom_hours", selector: { number: { mode: "box", min: 1, max: 2160, step: 1, unit_of_measurement: "h" } } }]
+                : []),
               grid([
                 { name: "smoothing", selector: { boolean: {} } },
                 { name: "band", selector: { boolean: {} } },

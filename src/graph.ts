@@ -206,20 +206,34 @@ export function dataRange(list: Buckets[]): [number, number] {
   return [lo, hi];
 }
 
-const NICE_HOURS = [0.25, 0.5, 1, 2, 3, 6, 12, 24, 48, 72, 168, 336, 720, 2160];
+const NICE_HOURS = [1 / 12, 1 / 6, 0.25, 0.5, 1, 2, 3, 6, 12, 24, 48, 72, 168, 336, 720, 2160];
 
-/** Relative time labels ("−6 h … now") at nice steps, about one per 90 px. */
-export function timeTicks(hours: number, plotW: number): Array<{ x: number; hours: number }> {
+/**
+ * Relative time labels ("−6 h … now") at nice steps, about one per 90 px, for any visible range
+ * [start, end] (ms). Ticks sit at whole steps before `now`, so they stay put while panning.
+ */
+export function timeTicksRange(start: number, end: number, now: number, plotW: number): Array<{ x: number; hours: number }> {
+  const spanH = (end - start) / 3_600_000;
   const target = Math.max(1, Math.floor(plotW / 90));
-  const step = NICE_HOURS.find((h) => h >= hours / target) ?? hours;
+  const step = NICE_HOURS.find((h) => h >= spanH / target) ?? spanH;
+  const stepMs = step * 3_600_000;
   const ticks: Array<{ x: number; hours: number }> = [];
-  for (let k = 1; k * step < hours - 1e-9; k++) {
-    const x = plotW * (1 - (k * step) / hours);
-    if (x >= 70) ticks.push({ x: Math.round(x), hours: k * step }); // keep clear of the y-axis labels
+  const kFrom = Math.floor((now - start) / stepMs + 1e-9);
+  const kTo = Math.max(0, Math.ceil((now - end) / stepMs - 1e-9));
+  for (let k = kFrom; k >= kTo; k--) {
+    const x = ((now - k * stepMs - start) / (end - start)) * plotW;
+    if (x > plotW + 0.5) continue;
+    // keep clear of the y-axis labels; the right edge keeps its exact position
+    if (k === 0 && Math.abs(x - plotW) < 0.5) ticks.push({ x: plotW, hours: 0 });
+    else if (x >= 70) ticks.push({ x: Math.round(x), hours: +(k * step).toFixed(4) });
   }
-  ticks.reverse();
-  ticks.push({ x: plotW, hours: 0 });
   return ticks;
+}
+
+/** Ticks for the live window ending now. */
+export function timeTicks(hours: number, plotW: number): Array<{ x: number; hours: number }> {
+  const end = hours * 3_600_000;
+  return timeTicksRange(0, end, end, plotW);
 }
 
 /** Value below which the share `q` (0…1) of the finite values lies (linear interpolation). */

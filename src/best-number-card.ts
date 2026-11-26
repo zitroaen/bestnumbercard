@@ -3,7 +3,7 @@ import pkg from "../package.json";
 import { runAction } from "./actions";
 import { colorAt, gradientStops, timeGradientStops, parseColor, rgbaToCss, sortStops, type GradientStop, type RGBA } from "./color-scale";
 import { DataSource, seriesId } from "./data";
-import { aggregate, bandPath, dataRange, quantile, scaleY, timeTicks, type YScale, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
+import { aggregate, bandPath, dataRange, quantile, scaleY, timeTicksRange, type YScale, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
 import { formatNumber, formatTime, localize } from "./localize";
 import { defaultColor, jumpValues } from "./presets";
 import { seededRandom, skyWeights, solarAltitude, sunEvents } from "./sun";
@@ -142,6 +142,7 @@ export class BestNumberCard extends LitElement {
     _width: { state: true },
     _graphH: { state: true },
     _room: { state: true },
+    _view: { state: true },
     _hoverX: { state: true },
     _tick: { state: true },
     _off: { state: true },
@@ -155,6 +156,24 @@ export class BestNumberCard extends LitElement {
   private _graphH = 0;
   /** free space between the card's top edge and the graph (for peak_overflow) */
   private _room = 0;
+  /**
+   * zoom: the visible range when the user panned or zoomed (null = the normal live window).
+   * `live` keeps the right edge at "now" (it moves with time), otherwise `end` is fixed.
+   */
+  private _view: { span: number; end: number; live: boolean } | null = null;
+  /** running touch / mouse gesture on the graph (zoom) */
+  private _gesture?: {
+    kind: "pending" | "pan" | "pinch" | "scrub" | "done";
+    x0: number;
+    y0: number;
+    start0: number;
+    span0: number;
+    dist0?: number;
+    mid0?: number;
+    timer?: number;
+  };
+  private _pointers = new Map<number, { x: number; y: number }>();
+  private _viewFrame?: number;
   private _hoverX: number | null = null;
   private _tick = 0;
   /** entities switched off via the legend (session only) */
@@ -255,6 +274,11 @@ export class BestNumberCard extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this._stopTwinkle();
+    if (this._viewFrame !== undefined) cancelAnimationFrame(this._viewFrame);
+    this._viewFrame = undefined;
+    clearTimeout(this._gesture?.timer);
+    this._gesture = undefined;
+    this._pointers.clear();
     this._io?.disconnect();
     this._io = undefined;
     document.removeEventListener("visibilitychange", this._onVisibility);
@@ -385,6 +409,50 @@ export class BestNumberCard extends LitElement {
     return h > 0 ? h : DEFAULTS.hours_to_show;
   }
 
+  /** zoom: how far back the user can scroll – that much history is loaded (default 7 days) */
+  private get _loadHours(): number {
+    if (!this._config?.zoom) return this._hours;
+    const z = Number(this._config.zoom_hours);
+    return Math.max(this._hours, z > 0 ? z : 168);
+  }
+
+  private get _zoomOn(): boolean {
+    return !!this._config?.zoom && !this._compact && (this._config.graph ?? DEFAULTS.graph) !== "none";
+  }
+
+  /** visible time range in ms */
+  private _range(now = Date.now()): { start: number; end: number } {
+    const v = this._view;
+    if (!v || !this._zoomOn) return { start: now - this._hours * 3_600_000, end: now };
+    const end = v.live ? now : v.end;
+    return { start: end - v.span, end };
+  }
+
+  /** Set the visible range (clamped to the loaded history); the right edge snaps back to "now". */
+  private _setView(start: number, span: number): void {
+    const now = Date.now();
+    const maxSpan = this._loadHours * 3_600_000;
+    span = Math.min(maxSpan, Math.max(10 * 60_000, span));
+    start = Math.max(now - maxSpan, Math.min(start, now - span));
+    const end = start + span;
+    const live = now - end < span * 0.01;
+    const next = live && Math.abs(span - this._hours * 3_600_000) < 1_000 ? null : { span, end, live };
+    // render at most once per frame while the fingers move
+    this._view = next;
+    if (this._viewFrame === undefined) {
+      this._viewFrame = requestAnimationFrame(() => {
+        this._viewFrame = undefined;
+        this._tick++;
+      });
+    }
+  }
+
+  private _resetView = (ev: Event) => {
+    ev.stopPropagation();
+    this._view = null;
+    this._tick++;
+  };
+
   private _graphEntities(): EntityConfig[] {
     return this._visible().filter((e) => e.show_graph !== false);
   }
@@ -397,7 +465,12 @@ export class BestNumberCard extends LitElement {
     const ids = needed ? [...new Set(this._graphEntities().map((e) => this._sid(e)))] : [];
     const threshold = Number(cfg.statistics_threshold ?? DEFAULTS.statistics_threshold);
     const detail = needed ? this._graphEntities().filter((e) => e.raw_history).map((e) => this._sid(e)) : [];
-    const key = ids.length ? JSON.stringify([ids, detail, this._hours, threshold, cfg.statistics_period ?? "auto"]) : "";
+    // zoom: fine 5-minute statistics for the whole scrollable range (HA keeps them for 10 days)
+    const period =
+      cfg.zoom && (!cfg.statistics_period || cfg.statistics_period === "auto") && this._loadHours <= 240
+        ? "5minute"
+        : cfg.statistics_period;
+    const key = ids.length ? JSON.stringify([ids, detail, this._loadHours, threshold, period ?? "auto"]) : "";
     if (key === this._dsKey) {
       this._ds?.setHass(this.hass);
       return;
@@ -407,9 +480,9 @@ export class BestNumberCard extends LitElement {
     if (!key) return;
     this._ds = new DataSource(this.hass, {
       entities: ids,
-      hoursToShow: this._hours,
+      hoursToShow: this._loadHours,
       statisticsThreshold: threshold,
-      statisticsPeriod: cfg.statistics_period,
+      statisticsPeriod: period,
       detail,
       onChange: () => this._scheduleTick(),
     });
@@ -430,13 +503,13 @@ export class BestNumberCard extends LitElement {
     if (!cfg || !this.hass || !this.isConnected) return;
     const needed = !this._compact && (cfg.graph ?? DEFAULTS.graph) !== "none";
     const ids = needed ? [...new Set(this._eventConfigs().map((e) => e.entity))] : [];
-    const key = ids.length ? JSON.stringify([ids, this._hours]) : "";
+    const key = ids.length ? JSON.stringify([ids, this._loadHours]) : "";
     if (key === this._evKey) return;
     this._ev?.dispose();
     this._ev = undefined;
     this._evKey = key;
     if (!key) return;
-    this._ev = new EventSource(this.hass, ids, this._hours, () => this._scheduleTick());
+    this._ev = new EventSource(this.hass, ids, this._loadHours, () => this._scheduleTick());
     this._ev.start();
     // the first answer must show up right away, not after the throttled interval
     this._fastUntil = Date.now() + 5_000;
@@ -705,11 +778,12 @@ export class BestNumberCard extends LitElement {
     const detail = (Number(cfg.detail) === 2 ? 2 : 1) as 1 | 2;
     const key = JSON.stringify([
       this._tick, this._cfgVersion, this._dsKey, this._width, height, this._room, plotW, detail, [...this._off], this._ds.loaded, this._compact, this._ev?.version ?? -1,
+      this._view,
     ]);
     if (this._model?.key === key) return this._model;
 
-    const end = Date.now();
-    const start = end - this._hours * 3_600_000;
+    const now = Date.now();
+    const { start, end } = this._range(now);
     const n = Math.max(2, Math.round(plotW / (detail === 2 ? 2 : 8)));
     const shown = ents.filter((e) => !this._off.has(this._sid(e)));
     const multi = shown.length > 1;
@@ -880,7 +954,7 @@ export class BestNumberCard extends LitElement {
       }
     }
 
-    const ticks = this._compact ? [] : timeTicks(this._hours, plotW);
+    const ticks = this._compact ? [] : timeTicksRange(start, end, now, plotW);
     this._model = { key, width: this._width, plotW, height, start, end, series, axes, thresholds, hasData, ticks, events, room: peaked ? room : 0 };
     return this._model;
   }
@@ -964,24 +1038,32 @@ export class BestNumberCard extends LitElement {
 
   private _setHoverFromEvent(ev: PointerEvent): void {
     if (!this._model) return;
-    const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = ev.clientX - rect.left;
+    const el = (ev.currentTarget as HTMLElement | null) ?? (this._graphEl as HTMLElement | undefined);
+    if (!el) return;
+    const x = ev.clientX - el.getBoundingClientRect().left;
     this._hoverX = x >= 0 && x <= this._model.plotW ? x : null;
   }
 
   // Mouse: tooltip follows the pointer. Touch: swipe horizontally over the graph to
   // scrub through the history – a short tap still triggers the card action.
+  // With zoom: one finger / mouse drag scrolls, two fingers zoom, press and hold shows the tooltip.
   private _onGraphDown = (ev: PointerEvent) => {
+    if (this._zoomOn) {
+      this._zoomDown(ev);
+      return;
+    }
     if (ev.pointerType === "mouse") return;
     this._scrub = { x: ev.clientX, y: ev.clientY, active: false };
   };
 
   private _onMove = (ev: PointerEvent) => {
+    if (this._zoomOn && this._zoomMove(ev)) return;
     if (this._config?.tooltip === false) return;
     if (ev.pointerType === "mouse") {
       this._setHoverFromEvent(ev);
       return;
     }
+    if (this._zoomOn) return;
     const s = this._scrub;
     if (!s) return;
     if (!s.active) {
@@ -996,19 +1078,147 @@ export class BestNumberCard extends LitElement {
   };
 
   private _onGraphUp = (ev: PointerEvent) => {
+    if (this._zoomOn) {
+      this._zoomUp(ev);
+      return;
+    }
     if (ev.pointerType === "mouse") return;
     if (this._scrub?.active) {
-      this._suppressClick = true;
-      // a click event may not follow – reset the flag shortly after
-      setTimeout(() => (this._suppressClick = false), 400);
+      this._suppressNextClick();
       clearTimeout(this._hideTimer);
       this._hideTimer = window.setTimeout(() => (this._hoverX = null), 2_000);
     }
     this._scrub = undefined;
   };
 
+  private _suppressNextClick(): void {
+    this._suppressClick = true;
+    // a click event may not follow – reset the flag shortly after
+    setTimeout(() => (this._suppressClick = false), 400);
+  }
+
   private _onLeave = (ev: PointerEvent) => {
-    if (ev.pointerType === "mouse") this._hoverX = null;
+    if (ev.pointerType === "mouse" && !this._gesture) this._hoverX = null;
+  };
+
+  // ---------------------------------------------------------------- zoom gestures
+
+  private _graphX(clientX: number): number {
+    const rect = this._graphEl?.getBoundingClientRect();
+    return rect ? clientX - rect.left : 0;
+  }
+
+  private _zoomDown(ev: PointerEvent): void {
+    if (ev.pointerType === "mouse" && ev.button !== 0) return;
+    try {
+      // keep getting the moves when the finger / mouse leaves the graph
+      (ev.currentTarget as HTMLElement).setPointerCapture?.(ev.pointerId);
+    } catch {
+      /* not supported for this pointer – the gesture still works inside the graph */
+    }
+    this._pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    const { start, end } = this._range();
+    clearTimeout(this._gesture?.timer);
+    if (this._pointers.size === 2) {
+      // second finger: pinch around the middle between both fingers
+      const [a, b] = [...this._pointers.values()];
+      this._gesture = {
+        kind: "pinch",
+        x0: 0,
+        y0: 0,
+        start0: start,
+        span0: end - start,
+        dist0: Math.max(10, Math.abs(a.x - b.x)),
+        mid0: this._graphX((a.x + b.x) / 2),
+      };
+      clearTimeout(this._holdTimer);
+      this._hoverX = null;
+      return;
+    }
+    if (this._pointers.size > 2) return;
+    const g: NonNullable<typeof this._gesture> = { kind: "pending", x0: ev.clientX, y0: ev.clientY, start0: start, span0: end - start };
+    // touch: press and hold (without moving) shows the tooltip, then slide to scrub
+    if (ev.pointerType !== "mouse" && this._config?.tooltip !== false) {
+      g.timer = window.setTimeout(() => {
+        if (this._gesture !== g || g.kind !== "pending") return;
+        g.kind = "scrub";
+        clearTimeout(this._holdTimer);
+        clearTimeout(this._hideTimer);
+        this._setHoverFromEvent(ev);
+      }, 350);
+    }
+    this._gesture = g;
+  }
+
+  /** true when the move was used by a zoom gesture */
+  private _zoomMove(ev: PointerEvent): boolean {
+    if (!this._pointers.has(ev.pointerId)) return false;
+    this._pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    const g = this._gesture;
+    const plotW = this._model?.plotW;
+    if (!g || !plotW) return false;
+    if (g.kind === "pinch") {
+      const [a, b] = [...this._pointers.values()];
+      if (!b) return true;
+      const dist = Math.max(10, Math.abs(a.x - b.x));
+      const mid = this._graphX((a.x + b.x) / 2);
+      const span = (g.span0 * g.dist0!) / dist;
+      // the moment under the fingers stays under the fingers (also moves with them)
+      const tMid = g.start0 + (g.mid0! / plotW) * g.span0;
+      this._setView(tMid - (mid / plotW) * span, span);
+      return true;
+    }
+    const dx = ev.clientX - g.x0;
+    const dy = ev.clientY - g.y0;
+    if (g.kind === "pending") {
+      if (Math.abs(dx) < 6 || Math.abs(dx) < Math.abs(dy)) return ev.pointerType !== "mouse";
+      g.kind = "pan";
+      clearTimeout(g.timer);
+      clearTimeout(this._holdTimer);
+      this._hoverX = null;
+    }
+    if (g.kind === "pan") {
+      this._setView(g.start0 - (dx / plotW) * g.span0, g.span0);
+      return true;
+    }
+    if (g.kind === "scrub") {
+      this._setHoverFromEvent(ev);
+      return true;
+    }
+    return false;
+  }
+
+  private _zoomUp(ev: PointerEvent): void {
+    this._pointers.delete(ev.pointerId);
+    const g = this._gesture;
+    if (!g) return;
+    clearTimeout(g.timer);
+    if (g.kind !== "pending") this._suppressNextClick();
+    if (g.kind === "scrub") {
+      clearTimeout(this._hideTimer);
+      this._hideTimer = window.setTimeout(() => (this._hoverX = null), 2_000);
+    }
+    // the gesture ends when the last finger is lifted; a remaining finger is ignored
+    if (!this._pointers.size) this._gesture = undefined;
+    else g.kind = "done";
+  }
+
+  /** Ctrl + wheel and trackpad pinch zoom around the pointer, horizontal wheel scrolls. */
+  private _onWheel = (ev: WheelEvent) => {
+    if (!this._zoomOn || !this._model) return;
+    const { start, end } = this._range();
+    const span = end - start;
+    const plotW = this._model.plotW;
+    if (ev.ctrlKey) {
+      ev.preventDefault();
+      const x = Math.min(plotW, Math.max(0, this._graphX(ev.clientX)));
+      const t = start + (x / plotW) * span;
+      const next = span * Math.exp(ev.deltaY * 0.01);
+      this._setView(t - (x / plotW) * next, next);
+    } else if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) {
+      ev.preventDefault();
+      this._setView(start + (ev.deltaX / plotW) * span, span);
+    }
   };
 
   // ---------------------------------------------------------------- render
@@ -1186,8 +1396,10 @@ export class BestNumberCard extends LitElement {
     const loading = !this._ds?.loaded;
     const yAxis = this._config!.y_axis ?? DEFAULTS.y_axis;
     const xAxis = this._config!.x_axis ?? DEFAULTS.x_axis;
+    // while scrolled / zoomed the time labels stay visible, so you know where you are
+    const zoomed = this._zoomOn && !!this._view;
     return html`<div
-      class="graph fade ${this._hoverX !== null ? "active" : ""} ${xAxis === "always" ? "xa-always" : ""}"
+      class="graph fade ${this._hoverX !== null ? "active" : ""} ${xAxis === "always" || zoomed ? "xa-always" : ""} ${this._zoomOn ? "zoom" : ""}"
       style=${Number(this._config!.height) > 0
         ? `height:${height}px;flex:none`
         : `flex:1 1 ${this._baseGraphHeight()}px;min-height:${Math.min(40, this._baseGraphHeight())}px`}
@@ -1196,10 +1408,12 @@ export class BestNumberCard extends LitElement {
       @pointerup=${this._onGraphUp}
       @pointercancel=${this._onGraphUp}
       @pointerleave=${this._onLeave}
+      @wheel=${this._onWheel}
     >
       ${!model
         ? nothing
-        : html`${this._renderSvg(model, loading)} ${this._renderEndLabels(model)}
+        : html`${this._renderSvg(model, loading)}
+          ${this._view && !this._view.live && this._zoomOn ? nothing : this._renderEndLabels(model)}
           ${loading ? html`<span class="sr-only" role="status">${localize(this.hass, "card.loading")}</span>` : nothing}
           ${model.hasData || loading
             ? nothing
@@ -1209,9 +1423,19 @@ export class BestNumberCard extends LitElement {
                   : localize(this.hass, "card.no_data")}
               </div>`}
           ${yAxis !== "none" && model.hasData ? this._renderAxes(model, yAxis) : nothing}
-          ${xAxis !== "none" && model.hasData ? this._renderTimeAxis(model, xAxis) : nothing}
+          ${xAxis !== "none" && model.hasData ? this._renderTimeAxis(model, zoomed ? "always" : xAxis) : nothing}
           ${model.hasData ? this._renderSunTimes(model) : nothing} ${this._renderEventPins(model)}
-          ${this._renderTooltip(model)}`}
+          ${this._renderTooltip(model)}
+          ${zoomed
+            ? html`<button
+                class="now-btn"
+                style="right:${model.width - model.plotW + 6}px"
+                @pointerdown=${(e: Event) => e.stopPropagation()}
+                @click=${this._resetView}
+              >
+                ${localize(this.hass, "card.back_to_now")}
+              </button>`
+            : nothing}`}
     </div>`;
   }
 
@@ -1390,7 +1614,7 @@ export class BestNumberCard extends LitElement {
   }
 
   private _eventTimeText(ev: EventMark): string {
-    const withDate = this._hours > 24;
+    const withDate = this._loadHours > 24;
     const a = formatTime(this.hass, ev.from, withDate);
     return ev.open ? `${localize(this.hass, "card.since")} ${a}` : `${a}–${formatTime(this.hass, ev.to, false)}`;
   }
@@ -1581,7 +1805,7 @@ export class BestNumberCard extends LitElement {
     const rows = m.series.filter((s) => !s.off).map((s) => ({ s, v: valueAtX(s.buckets, x, m.plotW) }));
     const left = x > m.width / 2;
     return html`<div class="tooltip" style="${left ? `right:${m.width - x + 10}px` : `left:${x + 10}px`}">
-      <div class="tt-time">${formatTime(this.hass, ts, this._hours > 24)}</div>
+      <div class="tt-time">${formatTime(this.hass, ts, this._loadHours > 24)}</div>
       ${rows.map(
         ({ s, v }) => html`<div class="tt-row">
           <span class="marker dot" style="background:${this._colorFor(s.cfg, v)}"></span>
@@ -1819,6 +2043,27 @@ export class BestNumberCard extends LitElement {
       position: relative;
       width: 100%;
       touch-action: pan-y;
+    }
+    /* zoom: the page may still scroll vertically, everything else belongs to the graph */
+    .graph.zoom {
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .now-btn {
+      position: absolute;
+      top: 4px;
+      z-index: 3;
+      font: inherit;
+      font-size: 12px;
+      line-height: 20px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--text-primary-color, #fff);
+      background: var(--primary-color, #03a9f4);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
     }
     /* the svg must not influence the layout – its size follows the measured area */
     .graph svg {
