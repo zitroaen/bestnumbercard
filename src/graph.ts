@@ -12,6 +12,33 @@ export interface Buckets {
   /** real minimum / maximum incl. statistics min/max (for the band and min/avg/max) */
   bandLo: Float64Array;
   bandHi: Float64Array;
+  /**
+   * Optional pixel position of bucket 0 and the distance between buckets. Set when the buckets
+   * are aligned to the clock (they then move smoothly with the time instead of being re-cut).
+   */
+  x0?: number;
+  dx?: number;
+}
+
+/** x of bucket i: from the clock-aligned grid if present, else spread evenly over the width */
+function bucketX(b: Buckets, i: number, width: number): number {
+  const n = b.mean.length;
+  if (b.dx !== undefined && b.x0 !== undefined) return Math.min(width, Math.max(0, b.x0 + i * b.dx));
+  return n > 1 ? (i * width) / (n - 1) : width;
+}
+
+/**
+ * Buckets on a grid aligned to the clock: their borders sit at whole multiples of the bucket
+ * width, so scrolling or the passing time only moves them – no re-cutting, no jitter.
+ */
+export function aggregateAligned(data: SeriesData, start: number, end: number, n: number, width: number): Buckets {
+  const bw = (end - start) / n;
+  const a0 = Math.floor(start / bw) * bw;
+  const count = Math.max(2, Math.ceil((end - a0) / bw - 1e-9));
+  const b = aggregate(data, a0, a0 + count * bw, count);
+  b.x0 = ((a0 + bw / 2 - start) / (end - start)) * width;
+  b.dx = width / n;
+  return b;
 }
 
 /**
@@ -111,9 +138,9 @@ export function toPoints(
   const n = b.mean.length;
   const segs: Point[][] = [];
   let seg: Point[] = [];
-  const step = n > 1 ? width / (n - 1) : 0;
+  const step = b.dx ?? (n > 1 ? width / (n - 1) : 0);
   for (let i = 0; i < n; i++) {
-    const x = n > 1 ? i * step : width;
+    const x = bucketX(b, i, width);
     if (Number.isNaN(b.mean[i])) {
       if (seg.length) segs.push(seg);
       seg = [];
@@ -167,13 +194,12 @@ export function fillPath(seg: Point[], smooth: boolean, bottom: number): string 
 /** Closed area between the band's upper and lower edge, split at gaps. */
 export function bandPath(b: Buckets, width: number, y: (v: number) => number): string {
   const n = b.mean.length;
-  const step = n > 1 ? width / (n - 1) : 0;
   let d = "";
   let seg: number[] = [];
   const flush = () => {
     if (seg.length > 1) {
-      const top = seg.map((i) => `${r(i * step)},${r(y(b.bandHi[i]))}`);
-      const bottom = seg.map((i) => `${r(i * step)},${r(y(b.bandLo[i]))}`).reverse();
+      const top = seg.map((i) => `${r(bucketX(b, i, width))},${r(y(b.bandHi[i]))}`);
+      const bottom = seg.map((i) => `${r(bucketX(b, i, width))},${r(y(b.bandLo[i]))}`).reverse();
       d += `M${top.join("L")}L${bottom.join("L")}Z`;
     }
     seg = [];
@@ -190,7 +216,8 @@ export function bandPath(b: Buckets, width: number, y: (v: number) => number): s
 export function valueAtX(b: Buckets, x: number, width: number): number {
   const n = b.mean.length;
   if (!n) return NaN;
-  const i = Math.min(n - 1, Math.max(0, Math.round((x / width) * (n - 1))));
+  const pos = b.dx !== undefined && b.x0 !== undefined ? (x - b.x0) / b.dx : (x / width) * (n - 1);
+  const i = Math.min(n - 1, Math.max(0, Math.round(pos)));
   return b.mean[i];
 }
 

@@ -121,3 +121,20 @@ test("time ticks for a panned / zoomed range stay at whole steps before now", as
   assert.equal(z[z.length - 1].hours, 0);
   assert.ok(z.some((x) => x.hours > 0 && x.hours < 0.5));
 });
+
+test("clock-aligned buckets: scrolling a bit only moves them, the values don't change (no jitter)", async () => {
+  const { aggregateAligned } = await import("../src/graph");
+  const t: number[] = [];
+  const v: number[] = [];
+  for (let i = 0; i < 1000; i++) {
+    t.push(i * 7);
+    v.push(Math.sin(i) * 100);
+  }
+  const a = aggregateAligned({ t, v }, 1000, 5000, 100, 400);
+  const b = aggregateAligned({ t, v }, 1013, 5013, 100, 400); // scrolled by a third of a bucket
+  // same grid: bucket borders at multiples of 40 ms
+  assert.equal(a.dx, b.dx);
+  const shift = Math.round(((b.x0! - a.x0!) / a.dx!) * 1000) / 1000;
+  assert.ok(Math.abs(shift + 13 / 40) < 1e-9, "the grid moves by exactly the scrolled distance");
+  for (let i = 0; i < 90; i++) assert.equal(a.mean[i], b.mean[i]);
+});

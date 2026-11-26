@@ -3,7 +3,7 @@ import pkg from "../package.json";
 import { runAction } from "./actions";
 import { colorAt, gradientStops, timeGradientStops, parseColor, rgbaToCss, sortStops, type GradientStop, type RGBA } from "./color-scale";
 import { DataSource, seriesId } from "./data";
-import { aggregate, bandPath, dataRange, quantile, scaleY, timeTicksRange, type YScale, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
+import { aggregateAligned, bandPath, dataRange, quantile, scaleY, timeTicksRange, type YScale, fillPath, linePath, toPoints, valueAtX, type Buckets, type Point } from "./graph";
 import { formatNumber, formatTime, localize } from "./localize";
 import { defaultColor, jumpValues } from "./presets";
 import { seededRandom, skyWeights, solarAltitude, sunEvents } from "./sun";
@@ -794,7 +794,7 @@ export class BestNumberCard extends LitElement {
     const detailFor = (e: EntityConfig): 1 | 2 => (e.raw_history ? 2 : detail);
     const agg = ents.map((e) => {
       const data = this._ds!.series(this._sid(e)) ?? { t: [], v: [] };
-      return { e, b: aggregate(data, start, end, nFor(e)) };
+      return { e, b: aggregateAligned(data, start, end, nFor(e), plotW) };
     });
     const groups = new Map<string, { lo: number; hi: number; first?: EntityConfig; peaks: number[]; peak?: number }>();
     const room = this._compact ? 0 : this._room;
@@ -971,8 +971,13 @@ export class BestNumberCard extends LitElement {
 
   private _onPointerDown = (ev: PointerEvent) => {
     this._held = false;
+    // a second finger (pinch) is no new tap
+    if (this._pointers.size > 1) return;
     this._down = { x: ev.clientX, y: ev.clientY };
     if (!this._config?.hold_action || this._config.hold_action.action === "none") return;
+    // with zoom, pressing and holding on the graph is for the tooltip – the hold action stays on
+    // the rest of the card, so it can't fire while scrolling or zooming
+    if (this._zoomOn && this._graphEl && ev.composedPath().includes(this._graphEl)) return;
     clearTimeout(this._holdTimer);
     this._holdTimer = window.setTimeout(() => {
       this._held = true;
@@ -991,6 +996,8 @@ export class BestNumberCard extends LitElement {
 
   private _onClick = (ev: MouseEvent) => {
     clearTimeout(this._holdTimer);
+    // no tap action in the middle of a scroll / zoom gesture
+    if (this._gesture && this._gesture.kind !== "pending") return;
     if (this._suppressClick) {
       this._suppressClick = false;
       return;
@@ -1531,8 +1538,6 @@ export class BestNumberCard extends LitElement {
     const density = pct(cfg.stars_density, 1);
     const style = cfg.stars_style ?? "glow";
     if (stars && night.rect !== nothing && brightness > 0 && density > 0) {
-      const rnd = seededRandom(parseInt(hash(this._uid + m.width), 36));
-      const count = Math.round(m.width * (top ? 0.24 : 0.28) * density);
       // light theme: darker stars, otherwise they disappear on the bright card
       const tints = cfg.stars_color
         ? [cfg.stars_color]
@@ -1544,35 +1549,48 @@ export class BestNumberCard extends LitElement {
       // no SVG masks (expensive to redraw on weak devices): each star gets its brightness
       // directly from how much night there is at its position and how high it is
       const nightAt = (x: number) => smp[Math.min(cols, Math.max(0, Math.round((x / m.plotW) * cols)))].n;
-      for (let i = 0; i < count; i++) {
-        const mag = Math.pow(rnd(), 3.2); // 0 = faint … 1 = bright, most stars are faint
-        const x = rnd() * m.width;
-        const yf = top ? Math.pow(rnd(), 1.5) * 0.72 : Math.pow(rnd(), 1.4);
-        const colorPick = rnd();
-        const twPick = rnd();
-        const fade = top ? (yf < 0.2 ? 1 : Math.max(0, 1 - (yf - 0.2) / 0.52)) : 1 - yf * 0.6;
-        const night = nightAt(x);
-        // stars outside the night are not created at all (fewer elements)
-        if (night * fade < 0.02) continue;
-        const r = (dark ? 0.35 : 0.5) + mag * 1.7;
-        const o = Math.min(1, (0.3 + 0.7 * mag) * brightness * fade * night * (dark ? 1 : 0.9));
-        const color = tints[Math.floor(colorPick * tints.length)];
-        const tw = twPick < twinkle * (0.3 + mag);
-        const cy = `${(yf * 100).toFixed(2)}%`;
-        // the brighter stars get a soft glow (or a sparkle)
-        if (style !== "dot" && mag > 0.5) {
-          glows.push(svg`<circle cx=${x.toFixed(1)} cy=${cy} r=${(r * 4.5).toFixed(1)} fill=${`url(#${id}-glow)`} opacity=${(o * 0.7).toFixed(2)}></circle>`);
+      // the sky belongs to the time axis: every hour has its own fixed set of stars, so they move
+      // with the graph (scrolling, passing time) and zooming in reveals more of them
+      const TILE = 3_600_000;
+      const span = m.end - m.start;
+      const perTile = Math.min(120, (TILE / span) * m.plotW * (top ? 0.24 : 0.28) * density);
+      const salt = parseInt(hash(this._uid), 36);
+      const tEnd = m.start + (span * m.width) / m.plotW; // also behind the end labels
+      for (let tile = Math.floor(m.start / TILE); tile <= Math.floor(tEnd / TILE); tile++) {
+        const rnd = seededRandom((salt ^ Math.imul(tile, 2654435761)) >>> 0);
+        const k = Math.floor(perTile) + (rnd() < perTile % 1 ? 1 : 0);
+        for (let j = 0; j < k; j++) {
+          const x = (((tile + rnd()) * TILE - m.start) / span) * m.plotW;
+          const mag = Math.pow(rnd(), 3.2); // 0 = faint … 1 = bright, most stars are faint
+          const yf = top ? Math.pow(rnd(), 1.5) * 0.72 : Math.pow(rnd(), 1.4);
+          const colorPick = rnd();
+          const twPick = rnd();
+          // (all random numbers are drawn first, so every star keeps its look)
+          if (x < -2 || x > m.width + 2) continue;
+          const fade = top ? (yf < 0.2 ? 1 : Math.max(0, 1 - (yf - 0.2) / 0.52)) : 1 - yf * 0.6;
+          const night = nightAt(x);
+          // stars outside the night are not created at all (fewer elements)
+          if (night * fade < 0.02) continue;
+          const r = (dark ? 0.35 : 0.5) + mag * 1.7;
+          const o = Math.min(1, (0.3 + 0.7 * mag) * brightness * fade * night * (dark ? 1 : 0.9));
+          const color = tints[Math.floor(colorPick * tints.length)];
+          const tw = twPick < twinkle * (0.3 + mag);
+          const cy = `${(yf * 100).toFixed(2)}%`;
+          // the brighter stars get a soft glow (or a sparkle)
+          if (style !== "dot" && mag > 0.5) {
+            glows.push(svg`<circle cx=${x.toFixed(1)} cy=${cy} r=${(r * 4.5).toFixed(1)} fill=${`url(#${id}-glow)`} opacity=${(o * 0.7).toFixed(2)}></circle>`);
+          }
+          if (style === "sparkle" && mag > 0.62) {
+            // small four-pointed sparkle for the brightest stars
+            const L = r * 3.2;
+            const d = `M${-L},0Q0,0 0,${-L}Q0,0 ${L},0Q0,0 0,${L}Q0,0 ${-L},0Z`;
+            dots.push(svg`<svg x=${x.toFixed(1)} y=${cy} overflow="visible"><path class=${tw ? "star tw" : "star"} d=${d} fill=${color} fill-opacity=${o.toFixed(2)}></path></svg>`);
+            continue;
+          }
+          dots.push(
+            svg`<circle class=${tw ? "star tw" : "star"} cx=${x.toFixed(1)} cy=${cy} r=${r.toFixed(2)} fill=${color} fill-opacity=${o.toFixed(2)}></circle>`,
+          );
         }
-        if (style === "sparkle" && mag > 0.62) {
-          // small four-pointed sparkle for the brightest stars
-          const L = r * 3.2;
-          const d = `M${-L},0Q0,0 0,${-L}Q0,0 ${L},0Q0,0 0,${L}Q0,0 ${-L},0Z`;
-          dots.push(svg`<svg x=${x.toFixed(1)} y=${cy} overflow="visible"><path class=${tw ? "star tw" : "star"} d=${d} fill=${color} fill-opacity=${o.toFixed(2)}></path></svg>`);
-          continue;
-        }
-        dots.push(
-          svg`<circle class=${tw ? "star tw" : "star"} cx=${x.toFixed(1)} cy=${cy} r=${r.toFixed(2)} fill=${color} fill-opacity=${o.toFixed(2)}></circle>`,
-        );
       }
       starMask = svg`<radialGradient id=${`${id}-glow`}>
           <stop offset="0" stop-color=${tints[0]} stop-opacity="0.8"></stop>
@@ -1701,7 +1719,8 @@ export class BestNumberCard extends LitElement {
         )}
         ${shown.map((s) =>
           s.fillGradId
-            ? svg`<linearGradient id=${s.fillGradId} gradientUnits="userSpaceOnUse" x1="0" x2=${m.plotW} y1="0" y2="0">
+            ? svg`<linearGradient id=${s.fillGradId} gradientUnits="userSpaceOnUse"
+                x1=${s.buckets.x0 ?? 0} x2=${(s.buckets.x0 ?? 0) + (s.buckets.dx ?? 0) * (s.buckets.mean.length - 1) || m.plotW} y1="0" y2="0">
                 ${s.fillGrad!.map((g) => svg`<stop offset=${g.offset} stop-color=${g.color}></stop>`)}
               </linearGradient>`
             : nothing,

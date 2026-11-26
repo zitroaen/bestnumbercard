@@ -309,6 +309,8 @@ With `zoom: true` the graph can be explored:
 | Tooltip | press and hold, then slide | hover |
 | Back to the live view | tap **↻ Now** | click **↻ Now** |
 
+Pressing and holding on the graph is for the tooltip, so a `hold_action` only reacts on the rest of the card (header, values) and never fires while you scroll or zoom. The stars belong to the time axis and move with the graph.
+
 The visible range starts as `hours_to_show`. You can zoom in down to 10 minutes and out to `zoom_hours`. While you look at the past, the time labels stay visible, and the end labels are hidden because they show the current values. Vertical swipes still scroll the dashboard.
 
 To keep it light, the whole scrollable range (`zoom_hours`, default 7 days) is loaded once as **5-minute statistics**: about 2,000 rows per entity for 7 days. HA keeps these for 10 days by default; for longer ranges, hourly statistics are used. Entities with `raw_history` load the full raw history for the whole range, which is much heavier.
