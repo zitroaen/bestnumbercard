@@ -106,3 +106,18 @@ test("detail 2 keeps the peaks of long-term statistics (their min / max columns)
   const smooth = toPoints(b, 1, 100, (v) => -v).flat();
   assert.ok(!smooth.some(([, y]) => y === -3000));
 });
+
+test("time ticks for a panned / zoomed range stay at whole steps before now", async () => {
+  const { timeTicksRange } = await import("../src/graph");
+  const H = 3_600_000;
+  const now = 100 * H;
+  // 6 h window, 30 h back: ticks at −36 h … −30 h, no "now"
+  const t = timeTicksRange(now - 36 * H, now - 30 * H, now, 380);
+  assert.ok(t.length >= 2);
+  assert.ok(t.every((x) => x.hours >= 30 && x.hours <= 36));
+  assert.ok(!t.some((x) => x.hours === 0));
+  // zoomed into 30 minutes: minute steps
+  const z = timeTicksRange(now - 0.5 * H, now, now, 380);
+  assert.equal(z[z.length - 1].hours, 0);
+  assert.ok(z.some((x) => x.hours > 0 && x.hours < 0.5));
+});

@@ -157,6 +157,10 @@ export interface CardConfig {
   events?: EventConfig[];
   /** Dotted vertical lines from the event pins into the graph (default true). */
   event_lines?: boolean;
+  /** Scroll (one finger / mouse drag) and pinch-to-zoom (two fingers / Ctrl+wheel) in the graph */
+  zoom?: boolean;
+  /** With zoom: how far back you can scroll, in hours (default 168 = 7 days); that much history is loaded */
+  zoom_hours?: number;
   /** pin icons at the start of the events (default true); the bars always stay */
   event_pins?: boolean;
   /** Day/night shading behind the card (computed from the location in HA). */
